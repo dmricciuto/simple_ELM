@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from math import sin, cos, sqrt, atan2, radians
 import math, time, os
 import utils
-import load_forcings
+import forcings
 
 class MyModel(object):
 
@@ -160,6 +160,17 @@ class MyModel(object):
         calc_nlimitation = True
         npfts = self.npfts
         #--------------- Initialize ------------------------
+        self.output={}
+        for v in self.outvars:
+          if ('_pft' in v):
+            self.output[v] = numpy.zeros([self.npfts,int(self.nobs)+1])
+          elif ('_vr' in v):
+            if ('ctcpools' in v):
+              self.output[v] = numpy.zeros([16,self.nsoil_layers,int(self.nobs)+1])
+            else:
+              self.output[v] = numpy.zeros([self.nsoil_layers,int(self.nobs)+1])
+          else:
+            self.output[v] = numpy.zeros([int(self.nobs)+1])
         #Flux variables
         gpp = self.output['gpp_pft']
         npp = self.output['npp_pft']
@@ -422,7 +433,7 @@ class MyModel(object):
                   ci = 0.5*(cair[v]+qq-pp+((cair[v]+qq-pp)**2-4.*(cair[v]*qq-pp*a[p,2]))**0.5)
                   e0 = a[p,6]*max(lai[p,v],0.5)**2/(max(lai[p,v],0.5)**2+a[p,8])
                   cps   = e0*rad[v]*gs*(cair[v]-ci)/(e0*rad[v]+gs*(cair[v]-ci))
-                  gpp[v+1] = cps*(a[p,1]*dayl[v]+a[p,4])
+                  gpp[p,v+1] = cps*(a[p,1]*dayl[v]+a[p,4])
                   #ACM is not valid for LAI < 0.5, so reduce GPP linearly for low LAI
                   if (lai[p,v] < 0.5):
                     gpp[p,v+1] = gpp[p,v+1]*lai[p,v]/0.5
