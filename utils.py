@@ -3,7 +3,7 @@ import itertools
 from pylab import *
 from netCDF4 import Dataset
 from common import oscm_dir
-from mpl_toolkits.basemap import Basemap
+#from mpl_toolkits.basemap import Basemap
 import matplotlib.tri as tri
 from common import pmin, pmax, outvars
 

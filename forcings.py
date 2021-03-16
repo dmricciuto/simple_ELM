@@ -3,7 +3,7 @@ import numpy
 
 def load(model, site='none', lat=-999, lon=-999):
          #Get single point data from E3SM style cpl_bypass input files
-         model.forcvars = ['tmax','tmin','rad','cair','doy','dayl','btran','time']
+         model.forcvars = ['tmax','tmin','t10','rad','cair','doy','dayl','btran','time']
          model.forcings = {}
          model.site=site
 
@@ -29,6 +29,10 @@ def load(model, site='none', lat=-999, lon=-999):
              for d in range(0,model.nobs):
                model.forcings['tmax'].append(max(tair[d*model.npd:(d+1)*model.npd])-273.15)
                model.forcings['tmin'].append(min(tair[d*model.npd:(d+1)*model.npd])-273.15)
+               if (d >= 9):
+                 model.forcings['t10'].append(sum((model.forcings['tmax'][d-9:d+1])+sum(model.forcings['tmin'][d-9:d+1]))/20)
+               else:
+                 model.forcings['t10'].append((model.forcings['tmax'][d]+model.forcings['tmin'][d])/2.0)
                model.forcings['rad'].append(sum(fsds[d*model.npd:(d+1)*model.npd]*(86400/model.npd)/1e6))
                model.forcings['btran'].append(1.0)
                model.forcings['cair'].append(360)

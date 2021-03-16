@@ -1,18 +1,39 @@
 ##!/usr/bin/python
-import model_DALEC as models
-import eval_DALEC 
+import model_sELM as models
 import os, sys, math, random
 import forcings
 from utils import *
+import matplotlib.pyplot as plt
 
-site = 'US-SPR'
+site = 'US-Ho1'
 #create model object
-model = models.MyModel()
+model = models.MyModel(site=site)
 #Load model forcings
-forcings.load(model, site=site)
+model.load_forcings(site=site)
 
-#run with the default parameters  (see above for definitions of the parameters)
-parms = [20,  20, -2, -2,  15, 15, 15, 15, 0.3, 0.3, 0.5, 0.7, 0.05, 50, 5, 2, 2.52e-6, 2, 2, 3, 50, 0.01]
-rmse = eval_DALEC.rmse(parms, model)
+fig, ax = plt.subplots(2,2)
+print('running the default model')
+model.run_selm(use_nn=True, seasonal_rootalloc=False, spinup_cycles=2)
+ax[0,0].plot(model.output['lai_pft'].squeeze()[0:365],'b')
+ax[0,0].set_ylabel('LAI')
+ax[0,1].plot(model.output['leafc_pft'].squeeze()[0:365],'b')
+ax[0,1].set_ylabel('Leaf C')
+ax[1,0].plot(model.output['frootc_pft'].squeeze()[0:365],'b')
+ax[1,0].set_ylabel('Froot C')
+ax[1,1].plot(model.output['deadstemc_pft'].squeeze()[0:365],'b')
+ax[1,1].set_ylabel('Dead stem C')
 
-print rmse
+print('running model with fine root phenology')
+model.parms['froot_phen_width'][:]=0.6
+model.parms['froot_phen_peak'][:]=0.5
+model.run_selm(use_nn=True, seasonal_rootalloc=True, spinup_cycles=2)
+ax[0,0].plot(model.output['lai_pft'].squeeze()[0:365],'r')
+ax[0,1].plot(model.output['leafc_pft'].squeeze()[0:365],'r')
+ax[1,0].plot(model.output['frootc_pft'].squeeze()[0:365],'r')
+ax[1,1].plot(model.output['deadstemc_pft'].squeeze()[0:365],'r')
+ax[1,1].legend(['Default','Root phenology'])
+
+plt.show()
+
+
+#print(i, rmse)

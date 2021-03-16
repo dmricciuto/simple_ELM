@@ -6,141 +6,84 @@ import matplotlib.pyplot as plt
 from math import sin, cos, sqrt, atan2, radians
 import math, time, os
 import utils
-import load_forcings
+#import load_forcings
 
 class MyModel(object):
 
-    def __init__(self):
+    def __init__(self,site=''):
         self.name = 'sELM'
-        self.npfts = 4
-        self.parms = {'gdd_crit':   numpy.zeros([self.npfts], numpy.float)+500.,   \
-                      'crit_dayl':  numpy.zeros([self.npfts], numpy.float)+39300., \
-                      'ndays_on':   numpy.zeros([self.npfts], numpy.float)+30.,    \
-                      'ndays_off':  numpy.zeros([self.npfts], numpy.float)+15.,    \
-                      'nue':        numpy.zeros([self.npfts], numpy.float)+15.,    \
-                      'flnr':       numpy.zeros([self.npfts], numpy.float)+0.10,   \
-                      'slatop':     numpy.zeros([self.npfts], numpy.float)+0.03,   \
-                      'leafcn':     numpy.zeros([self.npfts], numpy.float)+25.0,   \
-                      'leaflitcn':  numpy.zeros([self.npfts], numpy.float)+50.9,   \
-                      'livewdcn':   numpy.zeros([self.npfts], numpy.float)+50,     \
-                      'frootcn':    numpy.zeros([self.npfts], numpy.float)+42.0,   \
-		      'deadwdcn':   numpy.zeros([self.npfts], numpy.float)+500,    \
-                      'mbbopt':     numpy.zeros([self.npfts], numpy.float)+9.0,    \
-                      'roota_par':  numpy.zeros([self.npfts], numpy.float)+7.0,    \
-                      'rootb_par':  numpy.zeros([self.npfts], numpy.float)+2.0,    \
-                      'fstor2tran': numpy.zeros([self.npfts], numpy.float)+0.5,    \
-                      'stem_leaf':  numpy.zeros([self.npfts], numpy.float)-2.7,    \
-                      'croot_stem': numpy.zeros([self.npfts], numpy.float)+0.3,    \
-                      'f_livewd':   numpy.zeros([self.npfts], numpy.float)+0.1,    \
-                      'froot_leaf': numpy.zeros([self.npfts], numpy.float)+1.0,    \
-                      'rg_frac':    numpy.zeros([self.npfts], numpy.float)+0.3,    \
-                      'br_mr':      numpy.zeros([self.npfts], numpy.float)+2.52e-6,\
-                      'q10_mr':     numpy.zeros([self.npfts], numpy.float)+1.5,    \
-                      'cstor_tau':  numpy.zeros([self.npfts], numpy.float)+3.0,    \
-                      'leaf_long':  numpy.zeros([self.npfts], numpy.float)+3.0,    \
-                      'froot_long': numpy.zeros([self.npfts], numpy.float)+3.0,    \
-                      'season_decid': numpy.zeros([self.npfts], numpy.int)+1,      \
-		      'r_mort':     numpy.zeros([1], numpy.float)+0.02,            \
-                      'lwtop_ann':  numpy.zeros([1], numpy.float)+0.7,             \
-                      'q10_hr':     numpy.zeros([1], numpy.float)+1.5,             \
-                      'k_l1':       numpy.zeros([1], numpy.float)+1.2039728,       \
-                      'k_l2':       numpy.zeros([1], numpy.float)+0.0725707,       \
-                      'k_l3':       numpy.zeros([1], numpy.float)+0.0140989,       \
-                      'k_s1':       numpy.zeros([1], numpy.float)+0.0725707,       \
-                      'k_s2':       numpy.zeros([1], numpy.float)+0.0140989244,    \
-                      'k_s3':       numpy.zeros([1], numpy.float)+0.00140098,      \
-                      'k_s4':       numpy.zeros([1], numpy.float)+0.0001,          \
-                      'k_frag':     numpy.zeros([1], numpy.float)+0.0010005,       \
-                      'rf_l1s1':    numpy.zeros([1], numpy.float)+0.39,            \
-                      'rf_l2s2':    numpy.zeros([1], numpy.float)+0.55,            \
-                      'rf_l3s3':    numpy.zeros([1], numpy.float)+0.29,            \
-                      'rf_s1s2':    numpy.zeros([1], numpy.float)+0.28,            \
-                      'rf_s2s3':    numpy.zeros([1], numpy.float)+0.46,            \
-                      'rf_s3s4':    numpy.zeros([1], numpy.float)+0.55,            \
-                      'soil4ci':    numpy.zeros([1], numpy.float)+100.,              \
-                      'cwd_flig':   numpy.zeros([1], numpy.float)+0.24,            \
-                      'fr_flig':    numpy.zeros([1], numpy.float)+0.25,            \
-                      'lf_flig':    numpy.zeros([1], numpy.float)+0.25,            \
-                      'fr_flab':    numpy.zeros([1], numpy.float)+0.25,            \
-                      'lf_flab':    numpy.zeros([1], numpy.float)+0.25,            \
-                      'fpi':        numpy.zeros([1], numpy.float)+0.1,             \
-                      'fpg':        numpy.zeros([1], numpy.float)+0.9}
-        self.site='none'
+        elmsurfdat = Dataset('./surfdata/surfdata_'+site+'.nc','r')
+        elmparms = Dataset('./parameters/selm_default_parms.nc','r')
+        self.site=site
         self.nsoil_layers=10
         self.pdefault={}
         self.pmin = {}
         self.pmax = {}
-        self.nparms = 0
-         
-        #PFT-specific mods
-        #PFT 1 = Evergreen tree
-        #PFT 2 = Deciduous tree
-        #PFT 3 = Shrub
-        #PFT 4 = Sphagnum 
-        self.parms['season_decid'][0] = 0
-        self.parms['season_decid'][3] = 0
-        #SPRUCE optimization
-        self.parms['cstor_tau'][2] = 1.0
-        self.parms['cstor_tau'][3] = 1.0
-        self.parms['leafcn'][0] = 57.265
-        self.parms['leafcn'][1] = 64.233
-        self.parms['leafcn'][2] = 36.701
-        self.parms['leafcn'][3] = 42.555
-        self.parms['leaflitcn'][0] = 57.265*2
-        self.parms['leaflitcn'][1] = 64.233*2
-        self.parms['leaflitcn'][2] = 36.701*2
-        self.parms['leaflitcn'][3] = 42.555*2
-        self.parms['flnr'][0] = 0.1305
-        self.parms['flnr'][1] = 0.2410
-        self.parms['flnr'][2] = 0.1026
-        self.parms['flnr'][3] = 0.1642
-        self.parms['stem_leaf'][0] = -0.5174
-        self.parms['stem_leaf'][1] = -0.7836
-        self.parms['stem_leaf'][2] = 0.0515
-        self.parms['stem_leaf'][3] = 0.0 
-        self.parms['croot_stem'][0] = 0.2396
-        self.parms['croot_stem'][1] = 0.2452
-        self.parms['croot_stem'][2] = 0.4320
-        self.parms['croot_stem'][3] = 0
-        self.parms['slatop'][1] = 0.023845
-        self.parms['slatop'][0] = 0.00700
-        self.parms['slatop'][2] = 0.01696
-        self.parms['slatop'][3] = 0.007595
-        self.parms['froot_leaf'][0] = 1.807
-        self.parms['froot_leaf'][1] = 1.0345
-        self.parms['froot_leaf'][2] = 1.0547
-        self.parms['froot_leaf'][3] = 0.7774
-        self.parms['r_mort'][0] = 0.03516
-        self.parms['br_mr'][:] = 3.245e-6
-        self.parms['rg_frac'][:] = 0.401
-        self.parms['q10_mr'][:] = 2.08325
-        self.parms['lwtop_ann'][0] = 0.884018
+        #self.nparms = 0
+       
+        #get active PFTs from surface data
+        pct_nat_pft = elmsurfdat['PCT_NAT_PFT'][:].squeeze()
+        pftind = numpy.nonzero(pct_nat_pft)[0]
+        print('Number of active PFTS: '+str(len(pftind)))
+        self.pftfrac = pct_nat_pft[pftind]
+        self.npfts = len(pftind)
 
+        #define the subset of elm parameters that apply to selm
+        elm_parmlist = ['crit_dayl','ndays_on','ndays_off', \
+                'flnr','slatop','leafcn','lflitcn','livewdcn','frootcn', \
+                'deadwdcn','mbbopt','roota_par','rootb_par','fstor2tran', \
+                'stem_leaf','croot_stem','flivewd','froot_leaf','grperc', \
+                'br_mr','q10_mr','leaf_long','froot_long','season_decid', \
+                'r_mort','lwtop_ann','q10_hr','k_l1','k_l2','k_l3','k_s1', \
+                'k_s2','k_s3','k_s4','k_frag','rf_l1s1','rf_l2s2','rf_l3s3',\
+                'rf_s1s2','rf_s2s3','rf_s3s4','cwd_flig','fr_flig','lf_flig', \
+                'fr_flab','lf_flab','br_xr']
+        self.parms = {}
+        #get the elm parameters from the parameter file
+        for p in elm_parmlist:
+            if (len(elmparms[p][:]) > 1):
+                self.parms[p] = numpy.ma.filled(elmparms[p][pftind])
+            else:
+                self.parms[p] = [numpy.ma.filled(elmparms[p][0])]
+        #Additional selm parameters not in elm
+        self.parms['gdd_crit'] = numpy.zeros([self.npfts])+400.
+        self.parms['nue'] = numpy.zeros([self.npfts])+10.0
+        self.parms['fpg'] = [0.8]
+        self.parms['fpi'] = [0.8]
+        self.parms['soil4ci'] = [1000.]
+        self.parms['froot_phen_peak']=numpy.zeros([self.npfts])+0.5
+        self.parms['froot_phen_width']=numpy.zeros([self.npfts])+0.3
+
+        #set parameter ranges for UQ activities
         for p in self.parms:
             self.pdefault[p] = self.parms[p]
             if (p == 'crit_dayl'):
-                self.pmin[p] = self.parms[p]*0.0+36000.
-                self.pmax[p] = self.parms[p]*0.0+43000.
+                self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+36000.
+                self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+43000.
             elif (p == 'gdd_crit'):
-                self.pmin[p] = self.parms[p][:]*0.0+100.
-                self.pmax[p] = self.parms[p][:]*0.0+700.
+                self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+100.
+                self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+700.
             elif (p == 'fpg'):
-                self.pmin[p] = self.parms[p][:]*0.0+0.70
-                self.pmax[p] = self.parms[p][:]*0.0+0.95
+                self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+0.70
+                self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+0.95
             elif (p == 'nue'):
-                self.pmin[p] = 0.50*self.parms[p][:]
-                self.pmax[p] = 2.50*self.parms[p][:]
+                self.pmin[p] = numpy.multiply(self.parms[p][:], 0.5)
+                self.pmax[p] = numpy.multiply(self.parms[p][:], 2.5)
             elif (not 'season_decid' in p):
-                self.pmin[p] = self.parms[p]*0.50
-                self.pmax[p] = self.parms[p]*1.50
-            self.nparms = self.nparms+len(self.parms[p])
+                self.pmin[p] = numpy.multiply(self.parms[p],0.50)
+                self.pmax[p] = numpy.multiply(self.parms[p],1.50)
+            #self.nparms = self.nparms+len(self.parms[p])
         self.issynthetic = False
-        self.ne = 1
+        self.ne = 1                      #number of ensemble members
 
         #Model outputs
-        self.outvars = ['gpp_pft','npp_pft','gr_pft', 'mr_pft','hr','nee','lai_pft','leafc_pft','leafc_stor_pft','frootc_pft', \
-                        'frootc_stor_pft','livestemc_pft','deadstemc_pft','livecrootc_pft','deadcrootc_pft','totecosysc', \
-                        'totsomc','totlitc','cstor_pft','sminn_vr','nstor_pft','ndep','nfix','fpg_pft','fpi_vr','cwdc','totlitn','ctcpools_vr']
+        self.outvars = ['gpp_pft','npp_pft','gr_pft', 'mr_pft','hr','nee','lai_pft', \
+                        'leafc_pft','leafc_stor_pft','frootc_pft','frootc_stor_pft', \
+                        'livestemc_pft','deadstemc_pft','livecrootc_pft','deadcrootc_pft',\
+                        'totecosysc','totsomc','totlitc','cstor_pft','sminn_vr', \
+                        'nstor_pft','ndep','nfix','fpg_pft','fpi_vr','cwdc','totlitn', \
+                        'ctcpools_vr','leafc_alloc_pft','frootc_alloc_pft','livestemc_alloc_pft', \
+                        'deadstemc_alloc_pft']
 
         #get neural network
         pkl_filename = './GPP_model_NN/bestmodel_daily.pkl'
@@ -155,7 +98,7 @@ class MyModel(object):
           self.pmin_nn[i] = min(ptrain_orig[:,i])
           self.pmax_nn[i] = max(ptrain_orig[:,i])
 
-    def selm_instance(self, parms, use_nn=False, spinup_cycles=0, pftwt=[1.0,0,0]):
+    def selm_instance(self, parms, use_nn=False, seasonal_rootalloc=False, spinup_cycles=0, pftwt=[1.0,0,0]):
 
         calc_nlimitation = True
         npfts = self.npfts
@@ -190,6 +133,10 @@ class MyModel(object):
         cwdc        = self.output['cwdc']
         totlitn     = self.output['totlitn']
         ctcpools_vr = self.output['ctcpools_vr']
+        leafc_alloc     = self.output['leafc_alloc_pft']
+        frootc_alloc    = self.output['frootc_alloc_pft']
+        livestemc_alloc = self.output['livestemc_alloc_pft']
+        deadstemc_alloc = self.output['deadstemc_alloc_pft']
 
         #vertically resolved variables (local)
         root_frac = numpy.zeros([npfts,self.nsoil_layers], numpy.float)
@@ -249,8 +196,8 @@ class MyModel(object):
             leafc[p,0]      = 10.0
          
         nstor[:,0]       = 1.0
-        ctcpools_vr[6,:,0] = parms['soil4ci']
-        ctcpools_vr[14,:,0] = parms['soil4ci']/10.0   #ASSUME CN of 10
+        ctcpools_vr[6,:,0] = parms['soil4ci'][0]
+        ctcpools_vr[14,:,0] = parms['soil4ci'][0]/10.0   #ASSUME CN of 10
 
         #Forcings
         tmax = self.forcings['tmax']
@@ -267,21 +214,21 @@ class MyModel(object):
                2.1001, 0.789798]
 
         #Turnover times for CTC model
-        k_ctc = [parms['k_l1'],parms['k_l2'],parms['k_l3'],parms['k_s1'], \
-                 parms['k_s2'],parms['k_s3'],parms['k_s4'],parms['k_frag']]
+        k_ctc = [parms['k_l1'][0],parms['k_l2'][0],parms['k_l3'][0],parms['k_s1'][0], \
+                 parms['k_s2'][0],parms['k_s3'][0],parms['k_s4'][0],parms['k_frag'][0]]
         #Respiration fractions for CTC model pools
-        rf_ctc = [parms['rf_l1s1'],parms['rf_l2s2'],parms['rf_l3s3'] , \
-                  parms['rf_s1s2'],parms['rf_s2s3'],parms['rf_s3s4'], 1.0, 0.0]
+        rf_ctc = [parms['rf_l1s1'][0],parms['rf_l2s2'][0],parms['rf_l3s3'][0] , \
+                  parms['rf_s1s2'][0],parms['rf_s2s3'][0],parms['rf_s3s4'][0], 1.0, 0.0]
         #transfer matrix for CTC model
         tr_ctc = numpy.zeros([8,8],numpy.float)
-        tr_ctc[0,3] = 1.0 - parms['rf_l1s1']
-        tr_ctc[1,4] = 1.0 - parms['rf_l2s2']
-        tr_ctc[2,5] = 1.0 - parms['rf_l3s3']
-        tr_ctc[3,4] = 1.0 - parms['rf_s1s2']
-        tr_ctc[4,5] = 1.0 - parms['rf_s2s3']
-        tr_ctc[5,6] = 1.0 - parms['rf_s3s4']
-        tr_ctc[7,1] = parms['cwd_flig']
-        tr_ctc[7,2] = 1.0 - parms['cwd_flig']
+        tr_ctc[0,3] = 1.0 - parms['rf_l1s1'][0]
+        tr_ctc[1,4] = 1.0 - parms['rf_l2s2'][0]
+        tr_ctc[2,5] = 1.0 - parms['rf_l3s3'][0]
+        tr_ctc[3,4] = 1.0 - parms['rf_s1s2'][0]
+        tr_ctc[4,5] = 1.0 - parms['rf_s2s3'][0]
+        tr_ctc[5,6] = 1.0 - parms['rf_s3s4'][0]
+        tr_ctc[7,1] = parms['cwd_flig'][0]
+        tr_ctc[7,2] = 1.0 - parms['cwd_flig'][0]
 
         #Initialize local variables
         gdd     = numpy.zeros([npfts], numpy.float)+0.0
@@ -310,12 +257,8 @@ class MyModel(object):
         xsmr = numpy.zeros([npfts], numpy.float)+0.0
         callom = numpy.zeros([npfts], numpy.float)+0.0
         nallom = numpy.zeros([npfts], numpy.float)+0.0
-        leafc_alloc = numpy.zeros([npfts], numpy.float)+0.0
         leafcstor_alloc = numpy.zeros([npfts], numpy.float)+0.0
-        frootc_alloc = numpy.zeros([npfts], numpy.float)+0.0
         frootcstor_alloc = numpy.zeros([npfts], numpy.float)+0.0
-        livestemc_alloc = numpy.zeros([npfts], numpy.float)+0.0
-        deadstemc_alloc = numpy.zeros([npfts], numpy.float)+0.0
         livecrootc_alloc = numpy.zeros([npfts], numpy.float)+0.0
         deadcrootc_alloc = numpy.zeros([npfts], numpy.float)+0.0
         plant_ndemand = numpy.zeros([npfts], numpy.float)+0.0
@@ -366,43 +309,43 @@ class MyModel(object):
                 gdd_base = 0.0
                 gdd[p] = (doy[v] > 1) * (gdd[p] + max(0.5*(tmax[v]+tmin[v])-gdd_base, 0.0))
                 if (gdd[p] >= parms['gdd_crit'][p] and gdd_last < parms['gdd_crit'][p]):
-                  leafon[p] = parms['ndays_on'][p]
-                  leafc_trans_tot[p]  = leafc_stor[p,v]*parms['fstor2tran'][p]
-                  frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][p]
+                  leafon[p] = parms['ndays_on'][0]
+                  leafc_trans_tot[p]  = leafc_stor[p,v]*parms['fstor2tran'][0]
+                  frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
                 if (leafon[p] > 0):
-                  leafc_trans[p]  = leafc_trans_tot[p]  / parms['ndays_on'][p]
-                  frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][p]
+                  leafc_trans[p]  = leafc_trans_tot[p]  / parms['ndays_on'][0]
+                  frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
                   leafon[p] = leafon[p] - 1
                 else:
                   leafc_trans[p] = 0.0
                   frootc_trans[p] = 0.0
                 #Calculate leaf off
-                if (dayl_last >= parms['crit_dayl'][p]/3600. and dayl[v] < parms['crit_dayl'][p]/3600.):
-                   leafoff[p] = parms['ndays_off'][p]
+                if (dayl_last >= parms['crit_dayl'][0]/3600. and dayl[v] < parms['crit_dayl'][0]/3600.):
+                   leafoff[p] = parms['ndays_off'][0]
                    leafc_litter_tot[p]  = leafc[p,v]
                    frootc_litter_tot[p] = frootc[p,v]
                 if (leafoff[p] > 0):
-                   leafc_litter[p]  = min(leafc_litter_tot[p]  / parms['ndays_off'][p], leafc[p,v])
-                   frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][p], frootc[p,v])
+                   leafc_litter[p]  = min(leafc_litter_tot[p]  / parms['ndays_off'][0], leafc[p,v])
+                   frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
                    leafoff[p] = leafoff[p] - 1
                 else:
                    leafc_litter[p]  = 0.0
                    frootc_litter[p] = 0.0
-                leafn_litter[p] = leafc_litter[p] /parms['leaflitcn'][p]
+                leafn_litter[p] = leafc_litter[p] /parms['lflitcn'][p]
                 retransn[p] = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
               else:               #Evergreen phenology / leaf mortality`
                 retransn[p] = leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) * \
-                                    (1.0 / parms['leafcn'][p] - 1.0 / parms['leaflitcn'][p])
-                leafc_litter[p]  = parms['r_mort'] * leafc[p,v]/365.0  + leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. )
-                leafn_litter[p]  = parms['r_mort'] * leafc[p,v]/365.0  / parms['leafcn'][p] +  \
-                               leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) / parms['leaflitcn'][p]
-                frootc_litter[p] = parms['r_mort'] * frootc[p,v]/365.0 + frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)
+                                    (1.0 / parms['leafcn'][p] - 1.0 / parms['lflitcn'][p])
+                leafc_litter[p]  = parms['r_mort'][0] * leafc[p,v]/365.0  + leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. )
+                leafn_litter[p]  = parms['r_mort'][0] * leafc[p,v]/365.0  / parms['leafcn'][p] +  \
+                               leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) / parms['lflitcn'][p]
+                frootc_litter[p] = parms['r_mort'][0] * frootc[p,v]/365.0 + frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)
 
               #Calculate live wood turnover
-              livestemc_turnover[p]  = parms['lwtop_ann'] / 365. * livestemc[p,v]
-              livecrootc_turnover[p] = parms['lwtop_ann'] / 365. * livecrootc[p,v]
+              livestemc_turnover[p]  = parms['lwtop_ann'][0] / 365. * livestemc[p,v]
+              livecrootc_turnover[p] = parms['lwtop_ann'][0] / 365. * livecrootc[p,v]
               retransn[p] = retransn[p] + (livestemc_turnover[p]+livecrootc_turnover[p]) * \
-                                  (1.0/parms['livewdcn'][p]-1.0/parms['deadwdcn'][p])
+                                  (1.0/max(parms['livewdcn'][p],10.)-1.0/max(parms['deadwdcn'][p],10.))
               slatop = parms['slatop'][p]
               lai[p,v+1] = leafc[p,v] * slatop
 
@@ -447,19 +390,26 @@ class MyModel(object):
 
               #--------------------3.  Maintenace respiration ------------------------
               #Maintenance respiration
-              trate = parms['q10_mr'][p]**((0.5*(tmax[v]+tmin[v])-25.0)/25.0)
+              trate = parms['q10_mr'][0]**((0.5*(tmax[v]+tmin[v])-25.0)/25.0)
               mr[p,v+1] = (leafc[p,v]/parms['leafcn'][p] + frootc[p,v]/parms['frootcn'][p] + \
-                       (livecrootc[p,v]+livestemc[p,v])/parms['livewdcn'][p])* \
-                       (parms['br_mr'][p]*24*3600)*trate
+                       (livecrootc[p,v]+livestemc[p,v])/max(parms['livewdcn'][p],10.))* \
+                       (parms['br_mr'][0]*24*3600)*trate
               #Nutrient limitation
               availc[p]      = max(gpp[p,v+1]-mr[p,v+1],0.0)
               xsmr[p] = max(mr[p,v+1]-gpp[p,v+1],0.0)
 
               #---------------4.  Allocation and growth respiration -------------------
-              frg  = parms['rg_frac'][p]
-              flw  = parms['f_livewd'][p]
+              frg  = parms['grperc'][p]
+              flw  = parms['flivewd'][p]
               f1   = parms['froot_leaf'][p]
-         
+              if (seasonal_rootalloc):
+                  if (annsum_gpp_temp[p]/annsum_gpp[p] > parms['froot_phen_peak'][p]- \
+                          parms['froot_phen_width'][p]/2.0 and annsum_gpp_temp[p]/annsum_gpp[p] \
+                          < parms['froot_phen_peak'][p]+parms['froot_phen_width'][p]/2.0):
+                    f1 = f1*1.0/(parms['froot_phen_width'][p])
+                  else:
+                    f1 = 0.0
+
               if (parms['stem_leaf'][p] < 0):
                 f2   = max(-1.0*parms['stem_leaf'][p]/(1.0+numpy.exp(-0.004*(annsum_npp[p] - \
                                300.0))) - 0.4, 0.1)
@@ -469,20 +419,20 @@ class MyModel(object):
                 f3 = parms['croot_stem'][p]
               callom[p] = (1.0+frg)*(1.0 + f1 + f2*(1+f3))
               nallom[p] = 1.0 / parms['leafcn'][p] + f1 / parms['frootcn'][p] + \
-                    f2 * flw * (1.0 + f3) / parms['livewdcn'][p] + \
-                    f2 * (1.0 - flw) * (1.0 + f3) / parms['deadwdcn'][p]
+                    f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
+                    f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
               if (parms['season_decid'][p] == 1):
-                leafc_alloc[p]      = 0.
-                frootc_alloc[p]     = 0.
+                leafc_alloc[p,v]      = 0.
+                frootc_alloc[p,v]     = 0.
                 leafcstor_alloc[p]  = availc[p] * 1.0/callom[p]
                 frootcstor_alloc[p] = availc[p] * f1/callom[p]
               else:
                 leafcstor_alloc[p]  = 0.
                 frootcstor_alloc[p] = 0.
-                leafc_alloc[p]      = availc[p] * 1.0/callom[p]
-                frootc_alloc[p]     = availc[p] * f1/callom[p]
-              livestemc_alloc[p]  = availc[p] * flw*f2/callom[p]
-              deadstemc_alloc[p]  = availc[p] * (1.0-flw) * f2/callom[p]
+                leafc_alloc[p,v]      = availc[p] * 1.0/callom[p]
+                frootc_alloc[p,v]     = availc[p] * f1/callom[p]
+              livestemc_alloc[p,v]  = availc[p] * flw*f2/callom[p]
+              deadstemc_alloc[p,v]  = availc[p] * (1.0-flw) * f2/callom[p]
               livecrootc_alloc[p] = availc[p] * flw*(f2*f3)/callom[p]
               deadcrootc_alloc[p] = availc[p] * (1.0-flw) * f2*f3/callom[p]
               #Calculate nitrogen demand from smminn, subtracting off retranslocated proportion
@@ -565,33 +515,41 @@ class MyModel(object):
                 leafc_litter_vr[nl]  = leafc_litter_vr[nl] + pftwt[p] * leafc_litter[p] * surf_prof[nl]
                 frootc_litter_vr[nl] = frootc_litter_vr[nl] + pftwt[p] * frootc_litter[p] * surf_prof[nl]
                 leafn_litter_vr[nl]  = leafn_litter_vr[nl] + pftwt[p] * leafn_litter[p] * surf_prof[nl]
-                livestemc_litter_vr[nl] = livestemc_litter_vr[nl] + pftwt[p] * parms['r_mort'] / 365.0 * livestemc[p,v] * surf_prof[nl]
-                livecrootc_litter_vr[nl] = livecrootc_litter_vr[nl] + pftwt[p] * parms['r_mort'] / 365.0 * livecrootc[p,v] * root_frac[p,nl]
-                deadstemc_litter_vr[nl] = deadstemc_litter_vr[nl] + pftwt[p] * parms['r_mort'] * mort_factor / 365.0 * deadstemc[p,v] * surf_prof[nl]
-                deadcrootc_litter_vr[nl] = deadcrootc_litter_vr[nl] + pftwt[p] * parms['r_mort'] * mort_factor / 365.0 * deadcrootc[p,v] * root_frac[p,nl]
-                cstor_litter_vr[nl] = cstor_litter_vr[nl] + pftwt[p] * parms['r_mort'] / 365.0 * cstor[p,v] * surf_prof[nl]
-                nstor_litter_vr[nl] = nstor_litter_vr[nl] + pftwt[p] * parms['r_mort'] / 365.0 * nstor[p,v] * surf_prof[nl]
+                livestemc_litter_vr[nl] = livestemc_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * livestemc[p,v] * surf_prof[nl]
+                livecrootc_litter_vr[nl] = livecrootc_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * livecrootc[p,v] * root_frac[p,nl]
+                deadstemc_litter_vr[nl] = deadstemc_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
+                        * mort_factor / 365.0 * deadstemc[p,v] * surf_prof[nl]
+                deadcrootc_litter_vr[nl] = deadcrootc_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
+                        * mort_factor / 365.0 * deadcrootc[p,v] * root_frac[p,nl]
+                cstor_litter_vr[nl] = cstor_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * cstor[p,v] * surf_prof[nl]
+                nstor_litter_vr[nl] = nstor_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * nstor[p,v] * surf_prof[nl]
             # Take XSMR From cpool instead (below)
             for p in range(0,npfts):
-              cstor_turnover[p] = 1.0 / (parms['cstor_tau'][p] * 365) * cstor[p,v] * trate
+              cstor_turnover[p] = parms['br_xr'][p] * (3600.*24.) * cstor[p,v] * trate
 
               #increment plant C pools
-              leafc[p,v+1]       = leafc[p,v]       + fpg[p,v]*leafc_alloc[p] + leafc_trans[p] - leafc_litter[p]
+              leafc[p,v+1]       = leafc[p,v]       + fpg[p,v]*leafc_alloc[p,v] + leafc_trans[p] - leafc_litter[p]
               leafc_stor[p,v+1]  = leafc_stor[p,v]  + fpg[p,v]*leafcstor_alloc[p] - leafc_trans[p]
-              frootc[p,v+1]      = frootc[p,v]      + fpg[p,v]*frootc_alloc[p] + frootc_trans[p] - frootc_litter[p]
+              frootc[p,v+1]      = frootc[p,v]      + fpg[p,v]*frootc_alloc[p,v] + frootc_trans[p] - frootc_litter[p]
               frootc_stor[p,v+1] = frootc_stor[p,v] + fpg[p,v]*frootcstor_alloc[p] - frootc_trans[p]
-              livestemc[p,v+1]   = livestemc[p,v]   + fpg[p,v]*livestemc_alloc[p] - parms['r_mort'] / 365.0 * livestemc[p,v] \
-                                                - livestemc_turnover[p]
-              deadstemc[p,v+1]   = deadstemc[p,v]   + fpg[p,v]*deadstemc_alloc[p] - parms['r_mort'] * mort_factor / 365.0 * deadstemc[p,v] \
-                                                + livestemc_turnover[p]
-              livecrootc[p,v+1]  = livecrootc[p,v]  + fpg[p,v]*livecrootc_alloc[p] - parms['r_mort'] / 365.0 * livecrootc[p,v] \
-                                                - livecrootc_turnover[p]
-              deadcrootc[p,v+1]  = deadcrootc[p,v]  + fpg[p,v]*deadcrootc_alloc[p] - parms['r_mort'] * mort_factor / 365.0 * deadcrootc[p,v] \
-                                                + livecrootc_turnover[p]
-              cstor[p,v+1]       = cstor[p,v] + cstor_alloc[p] - parms['r_mort'] / 365.0 * cstor[p,v] - cstor_turnover[p] - xsmr[p]
+              livestemc[p,v+1]   = livestemc[p,v]   + fpg[p,v]*livestemc_alloc[p,v] - parms['r_mort'][0] \
+                      / 365.0 * livestemc[p,v] - livestemc_turnover[p]
+              deadstemc[p,v+1]   = deadstemc[p,v]   + fpg[p,v]*deadstemc_alloc[p,v] - parms['r_mort'][0] \
+                      * mort_factor / 365.0 * deadstemc[p,v] + livestemc_turnover[p]
+              livecrootc[p,v+1]  = livecrootc[p,v]  + fpg[p,v]*livecrootc_alloc[p] - parms['r_mort'][0] \
+                      / 365.0 * livecrootc[p,v] - livecrootc_turnover[p]
+              deadcrootc[p,v+1]  = deadcrootc[p,v]  + fpg[p,v]*deadcrootc_alloc[p] - parms['r_mort'][0] \
+                      * mort_factor / 365.0 * deadcrootc[p,v] + livecrootc_turnover[p]
+              cstor[p,v+1]       = cstor[p,v] + cstor_alloc[p] - parms['r_mort'][0] / 365.0 * \
+                      cstor[p,v] - cstor_turnover[p] - xsmr[p]
               #Increment plant N pools
               if (calc_nlimitation):
-                nstor[p,v+1] = nstor[p,v] - parms['r_mort'] / 365.0 * nstor[p,v] + retransn[p] - plant_nalloc[p] + fpi*plant_ndemand[p]  
+                nstor[p,v+1] = nstor[p,v] - parms['r_mort'][0] / 365.0 * nstor[p,v] + \
+                        retransn[p] - plant_nalloc[p] + fpi*plant_ndemand[p]  
 
               #Calculate NPP
               npp[p,v+1] = gpp[p,v+1] - mr[p,v+1] - gr[p,v+1] - cstor_turnover[p]
@@ -614,20 +572,20 @@ class MyModel(object):
             #Litter inputs to the system
               #Carbon
             for nl in range(0,self.nsoil_layers):
-              ctc_input[0,nl] = leafc_litter_vr[nl]*parms['lf_flab'] + frootc_litter_vr[nl]*parms['fr_flab']
-              ctc_input[1,nl] = leafc_litter_vr[nl]*parms['lf_flig'] + frootc_litter_vr[nl]*parms['fr_flig']
-              ctc_input[2,nl] = leafc_litter_vr[nl]*(1.0 - parms['lf_flab'] - parms['lf_flig']) + frootc_litter_vr[nl]* \
-                           (1.0-parms['fr_flab']-parms['fr_flig'])
+              ctc_input[0,nl] = leafc_litter_vr[nl]*parms['lf_flab'][p] + frootc_litter_vr[nl]*parms['fr_flab'][p]
+              ctc_input[1,nl] = leafc_litter_vr[nl]*parms['lf_flig'][p] + frootc_litter_vr[nl]*parms['fr_flig'][p]
+              ctc_input[2,nl] = leafc_litter_vr[nl]*(1.0 - parms['lf_flab'][p] - parms['lf_flig'][p]) + frootc_litter_vr[nl]* \
+                           (1.0-parms['fr_flab'][p]-parms['fr_flig'][p])
               ctc_input[7,nl] = livestemc_litter_vr[nl] + livecrootc_litter_vr[nl] + deadcrootc_litter_vr[nl] + deadstemc_litter_vr[nl] 
               #Nitrogen
-              ctc_input[8,nl] = leafn_litter_vr[nl]*parms['lf_flab'] + \
-                               frootc_litter_vr[nl]*parms['fr_flab'] / parms['frootcn'][p] 
-              ctc_input[9,nl] = leafn_litter_vr[nl]*parms['lf_flig'] + \
-                               frootc_litter_vr[nl]*parms['fr_flig'] / parms['frootcn'][p]
-              ctc_input[10,nl] = leafn_litter_vr[nl]*(1.0 - parms['lf_flig'] - parms['lf_flab']) +  \
-                           frootc_litter_vr[nl]*(1.0 - parms['fr_flig'] - parms['fr_flab']) / parms['frootcn'][p]
-              ctc_input[15,nl] = (livestemc_litter_vr[nl] + livecrootc_litter_vr[nl]) / parms['livewdcn'][p] + \
-                            (deadcrootc_litter_vr[nl] + deadstemc_litter_vr[nl]) / parms['deadwdcn'][p]
+              ctc_input[8,nl] = leafn_litter_vr[nl]*parms['lf_flab'][p] + \
+                               frootc_litter_vr[nl]*parms['fr_flab'][p] / parms['frootcn'][p] 
+              ctc_input[9,nl] = leafn_litter_vr[nl]*parms['lf_flig'][p] + \
+                               frootc_litter_vr[nl]*parms['fr_flig'][p] / parms['frootcn'][p]
+              ctc_input[10,nl] = leafn_litter_vr[nl]*(1.0 - parms['lf_flig'][p] - parms['lf_flab'][p]) +  \
+                           frootc_litter_vr[nl]*(1.0 - parms['fr_flig'][p] - parms['fr_flab'][p]) / parms['frootcn'][p]
+              ctc_input[15,nl] = (livestemc_litter_vr[nl] + livecrootc_litter_vr[nl]) / max(parms['livewdcn'][p],10.) + \
+                            (deadcrootc_litter_vr[nl] + deadstemc_litter_vr[nl]) / max(parms['deadwdcn'][p],10.)
 
             ctc_to_sminn = numpy.zeros([self.nsoil_layers], numpy.float)
             if (s < spinup_cycles):
@@ -707,7 +665,7 @@ class MyModel(object):
             nfix[v] = 0
             for p in range(0,self.npfts):
               nfix[v] = nfix[v] + pftwt[p] * (1.8 * (1.0 - math.exp(-0.003 * annsum_npp[p]))) / (365)            
-            bdnr = 0.005
+            bdnr =0.05
             if (calc_nlimitation):
               for nl in range(0,self.nsoil_layers):
                 sminn_vr[nl,v+1] = max(sminn_vr[nl,v]*(1-bdnr) + nfix[v]*root_frac[0,nl] + ndep[v]*surf_prof[nl] - \
@@ -715,7 +673,7 @@ class MyModel(object):
 
     def run_selm(self, spinup_cycles=0, lat_bounds=[-999,-999], lon_bounds=[-999,-999], \
                      do_monthly_output=False, do_output_forcings=False, pft=-1,          \
-                     prefix='model', use_nn=False, ensemble=False, myoutvars=[], use_MPI=False):
+                     prefix='model', seasonal_rootalloc=False, use_nn=False, ensemble=False, myoutvars=[], use_MPI=False):
 
         ens_torun=[]
         indx_torun=[]
@@ -728,7 +686,7 @@ class MyModel(object):
            comm=MPI.COMM_WORLD
            rank=comm.Get_rank()
            size=comm.Get_size()
-           print size, 'i am', rank
+           print(size, 'i am', rank)
          else:
            rank = 0
            size = 0
@@ -796,10 +754,7 @@ class MyModel(object):
              size=comm.Get_size()
           if (rank == 0):
             for k in range(0,self.ne):
-               if (pft >= 0):
-                 pftwt_torun[pft, k] = 100.0
-               elif ('SPR'in self.site):
-                 pftwt_torun[0:4, k] = 25.0
+               pftwt_torun[0:self.npfts,k] = self.pftfrac
                indx_torun.append(0)
                indy_torun.append(0)
                ens_torun.append(k)
@@ -821,7 +776,7 @@ class MyModel(object):
             myoutvars = self.outvars
             for v in self.forcvars:
               if (v != 'time'):
-                myoutvars.append[v]
+                myoutvars.append(v)
 
           for v in myoutvars:
             if (v in self.forcvars):
@@ -847,16 +802,17 @@ class MyModel(object):
                 if (self.ne > 1):
                   for p in range(0,len(self.ensemble_pnames)):
                     self.parms[self.ensemble_pnames[p]][self.ensemble_ppfts[p]] = self.parm_ensemble[i,p]
-                print 'Starting SLEM instance'
-                self.selm_instance(self.parms, use_nn=use_nn, spinup_cycles=spinup_cycles, pftwt=pftwt_torun[:,i]/100.0)
+                print('Starting SLEM instance')
+                self.selm_instance(self.parms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc, \
+                        pftwt=pftwt_torun[:,i]/100.0)
                 self.pftfrac[indy_torun[i],indx_torun[i],:] = pftwt_torun[:,i]
                 for v in myoutvars:
-                  if (v in self.outvars):
+                  if (v in self.outvars and not (v in self.forcvars)):
                     if (do_monthly_output):
                       if (v != 'ctcpools_vr' and (not '_vr' in v) and (not '_pft' in v) ):
                         model_output[v][ens_torun[i],:,indy_torun[i],indx_torun[i]] = \
                          utils.daily_to_monthly(self.output[v][1:])
-                      elif ('_vr' in v):
+                      elif ('_vr' in v and not 'ctcpools' in v):
                           model_output[v][ens_torun[i],:,:,indy_torun[i],indx_torun[i]] = \
                            utils.daily_to_monthly(self.output[v][:,1:])
                       elif ('_pft' in v):
@@ -866,7 +822,7 @@ class MyModel(object):
                       if (v != 'ctcpools_vr' and (not '_vr' in v) and (not '_pft' in v) ):
                         model_output[v][ens_torun[i],:,indy_torun[i],indx_torun[i]] = \
                          self.output[v][1:]
-                      elif ('_vr' in v):
+                      elif ('_vr' in v and not 'ctcpools' in v):
                         for nl in range(0,self.nsoil_layers):
                           model_output[v][ens_torun[i],nl,:,indy_torun[i],indx_torun[i]] = \
                            self.output[v][nl,1:]
@@ -876,10 +832,10 @@ class MyModel(object):
                            self.output[v][p,1:]
                   elif (v in self.forcvars):
                     if (do_monthly_output):
-                       model_output[v][ens_torun,:,indy_torun[i],indx_torun[i]] = \
+                       model_output[v][:,indy_torun[i],indx_torun[i]] = \
                             utils.daily_to_monthly(self.forcings[v])
                     else:
-                       model_output[v][ens_torun,:,indy_torun[i],indx_torun[i]] = \
+                       model_output[v][:,indy_torun[i],indx_torun[i]] = \
                             self.forcings[v][:]
             self.write_nc_output(model_output, do_monthly_output=do_monthly_output, prefix=prefix)
           else:
@@ -1027,7 +983,8 @@ class MyModel(object):
                   myparms = self.pdefault
                   for p in range(0,len(self.ensemble_pnames)):
                     myparms[self.ensemble_pnames[p]] = self.parm_ensemble[k,p]
-                self.selm_instance(myparms, use_nn=use_nn, spinup_cycles=spinup_cycles, pftwt=mypftwt/100.0 )
+                self.selm_instance(myparms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc, \
+                        pftwt=mypftwt/100.0 )
                 for v in myoutvars:
                    if (v in self.outvars):
                      if (do_monthly_output):
@@ -1128,7 +1085,10 @@ class MyModel(object):
             else:
               if (not 'ctcpools' in v and not '_pft' in v and not '_vr' in v):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('time','lat','lon'))
-                ncvars[v][:,:,:] = output[v][0,:,:,:].squeeze() 
+                if (v in self.forcvars):
+                    ncvars[v][:,:,:] = output[v][:,:,:]
+                else:
+                    ncvars[v][:,:,:] = output[v][0,:,:,:].squeeze() 
               elif ('_vr' in v):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('soil','time','lat','lon'))
                 ncvars[v][:,:,:,:] = output[v][0,:,:,:,:].squeeze()
