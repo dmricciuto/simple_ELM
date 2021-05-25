@@ -140,6 +140,8 @@ class MyModel(object):
 
         #vertically resolved variables (local)
         root_frac = numpy.zeros([npfts,self.nsoil_layers], numpy.float)
+        #3-D root_frac
+        root_frac = numpy.zeros([npfts,self.norders,self.nsoil_layers], numpy.float)
         surf_prof = numpy.zeros([self.nsoil_layers], numpy.float)
         depth_scalar = numpy.zeros([self.nsoil_layers], numpy.float)+1.0
 
@@ -167,25 +169,43 @@ class MyModel(object):
               soil_depth[i] = soil_hi[i-1]+soil_dz[i]/2.0 
             depth_scalar[i] = math.exp(-soil_depth[i] / decomp_depth_efolding)
           for i in range(0,self.nsoil_layers):
-           for p in range(0,npfts):
-            #Figure out root fraction
-            if (i == 0):
-              root_frac[p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*0.0)+ \
-                                numpy.exp(-1.0*parms['rootb_par'][p]*0.0) - \
-                                numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
-                                numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
-            else:
-              root_frac[p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i-1])+ \
-                                numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i-1]) - \
-                                numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
-                                numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
-           surf_prof[i] = (numpy.exp(-10.0*soil_nodes[i])) / soil_dz[i]
-        else:
-          surf_prof[0] = 1.0
+            for p in range(0,npfts):
+              #Figure out root fraction
+              ####################################
+              # BWANG: a generic explicit fine root systems from a single pool to multi-pools
+              #    root_frac[p,i] -> root_frac[o,p,i]
+              if (multi_root_pools == TRUE):
+                for o in range(0,nrorders):
+                  if (i == 0):
+                    root_frac[o,p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*0.0)+ \
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*0.0) - \
+                                      numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
+                  else:
+                    root_frac[o,p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i-1])+ \
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i-1]) - \
+                                      numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
+              else:
+                if (i == 0):
+                  root_frac[p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*0.0)+ \
+                                    numpy.exp(-1.0*parms['rootb_par'][p]*0.0) - \
+                                    numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
+                                    numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
+                else:
+                  root_frac[p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i-1])+ \
+                                    numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i-1]) - \
+                                    numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
+                                    numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
+            surf_prof[i] = (numpy.exp(-10.0*soil_nodes[i])) / soil_dz[i]
+        else: #nsoil_layers = 1
+          surf_prof[0]   = 1.0
           root_frac[:,0] = 1.0
 
         for p in range(0,npfts):
           root_frac[p,:] = root_frac[p,:]/sum(root_frac[p,:])
+          #BWANG
+          #
         surf_prof = surf_prof/sum(surf_prof)
 
         #Set nonzero initial States 
@@ -240,6 +260,9 @@ class MyModel(object):
         frootc_trans_tot = numpy.zeros([npfts], numpy.float)+0.0
         leafc_litter = numpy.zeros([npfts], numpy.float)+0.0
         frootc_litter = numpy.zeros([npfts], numpy.float)+0.0
+        ##
+        frootc_litter = numpy.zeros([npfts,nroot_orders], numpy.float)+0.0
+
         leafc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
         frootc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
         leafn_litter = numpy.zeros([npfts], numpy.float)+0.0
@@ -264,8 +287,9 @@ class MyModel(object):
         plant_ndemand = numpy.zeros([npfts], numpy.float)+0.0
         plant_nalloc = numpy.zeros([npfts], numpy.float)+0.0
         cstor_turnover = numpy.zeros([npfts], numpy.float)+0.0
-        
+        #
         met_thistimestep_norm=numpy.zeros([1,self.nparms_nn], numpy.float)
+        
         #Run the model
         for s in range(0,spinup_cycles+1):
           totecosysc_last = totecosysc[0]
@@ -275,6 +299,7 @@ class MyModel(object):
               leafc[p,0]       = leafc[p,self.nobs-1]
               frootc_stor[p,0] = frootc_stor[p,self.nobs-1]
               frootc[p,0]      = frootc[p,self.nobs-1]
+              ##
               livestemc[p,0]   = livestemc[p,self.nobs-1]
               deadstemc[p,0]   = deadstemc[p,self.nobs-1]
               livecrootc[p,0]  = livecrootc[p,self.nobs-1]
@@ -317,22 +342,29 @@ class MyModel(object):
                   frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
                   leafon[p] = leafon[p] - 1
                 else:
-                  leafc_trans[p] = 0.0
+                  leafc_trans[p]  = 0.0
                   frootc_trans[p] = 0.0
                 #Calculate leaf off
                 if (dayl_last >= parms['crit_dayl'][0]/3600. and dayl[v] < parms['crit_dayl'][0]/3600.):
                    leafoff[p] = parms['ndays_off'][0]
                    leafc_litter_tot[p]  = leafc[p,v]
                    frootc_litter_tot[p] = frootc[p,v]
+                   ############
+                   frootc_litter_tot[p,o] = frootc[p,v]
                 if (leafoff[p] > 0):
                    leafc_litter[p]  = min(leafc_litter_tot[p]  / parms['ndays_off'][0], leafc[p,v])
                    frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
+                   ############
+                   frootc_litter[p,o]=min(frootc_litter_tot[p,o]/parms['ndays_off'][0], frootc[p,v])
+
                    leafoff[p] = leafoff[p] - 1
                 else:
                    leafc_litter[p]  = 0.0
                    frootc_litter[p] = 0.0
+                   ####
+                   frootc_litter[p,o] = 0.0
                 leafn_litter[p] = leafc_litter[p] /parms['lflitcn'][p]
-                retransn[p] = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
+                retransn[p]     = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
               else:               #Evergreen phenology / leaf mortality`
                 retransn[p] = leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) * \
                                     (1.0 / parms['leafcn'][p] - 1.0 / parms['lflitcn'][p])
@@ -340,6 +372,8 @@ class MyModel(object):
                 leafn_litter[p]  = parms['r_mort'][0] * leafc[p,v]/365.0  / parms['leafcn'][p] +  \
                                leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) / parms['lflitcn'][p]
                 frootc_litter[p] = parms['r_mort'][0] * frootc[p,v]/365.0 + frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)
+                ################
+                frootc_litter[p,o] = 
 
               #Calculate live wood turnover
               livestemc_turnover[p]  = parms['lwtop_ann'][0] / 365. * livestemc[p,v]
@@ -391,12 +425,13 @@ class MyModel(object):
               #--------------------3.  Maintenace respiration ------------------------
               #Maintenance respiration
               trate = parms['q10_mr'][0]**((0.5*(tmax[v]+tmin[v])-25.0)/25.0)
+              ## root
               mr[p,v+1] = (leafc[p,v]/parms['leafcn'][p] + frootc[p,v]/parms['frootcn'][p] + \
                        (livecrootc[p,v]+livestemc[p,v])/max(parms['livewdcn'][p],10.))* \
                        (parms['br_mr'][0]*24*3600)*trate
               #Nutrient limitation
-              availc[p]      = max(gpp[p,v+1]-mr[p,v+1],0.0)
-              xsmr[p] = max(mr[p,v+1]-gpp[p,v+1],0.0)
+              availc[p] = max(gpp[p,v+1]-mr[p,v+1],0.0)
+              xsmr[p]   = max(mr[p,v+1]-gpp[p,v+1],0.0)
 
               #---------------4.  Allocation and growth respiration -------------------
               frg  = parms['grperc'][p]
@@ -418,23 +453,28 @@ class MyModel(object):
                 f2 = parms['stem_leaf'][p]
                 f3 = parms['croot_stem'][p]
               callom[p] = (1.0+frg)*(1.0 + f1 + f2*(1+f3))
+              #### fine root C/N
               nallom[p] = 1.0 / parms['leafcn'][p] + f1 / parms['frootcn'][p] + \
                     f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
                     f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
+              
+              #### BWANG: frootc_alloc[p,v] treated as TOTAL potential allocation to fine roots,
+              #### which will be partitioned later among different pools (N) of fine roots.
               if (parms['season_decid'][p] == 1):
-                leafc_alloc[p,v]      = 0.
-                frootc_alloc[p,v]     = 0.
+                leafc_alloc[p,v]    = 0.
+                frootc_alloc[p,v]   = 0.
                 leafcstor_alloc[p]  = availc[p] * 1.0/callom[p]
                 frootcstor_alloc[p] = availc[p] * f1/callom[p]
               else:
                 leafcstor_alloc[p]  = 0.
                 frootcstor_alloc[p] = 0.
-                leafc_alloc[p,v]      = availc[p] * 1.0/callom[p]
-                frootc_alloc[p,v]     = availc[p] * f1/callom[p]
-              livestemc_alloc[p,v]  = availc[p] * flw*f2/callom[p]
-              deadstemc_alloc[p,v]  = availc[p] * (1.0-flw) * f2/callom[p]
-              livecrootc_alloc[p] = availc[p] * flw*(f2*f3)/callom[p]
-              deadcrootc_alloc[p] = availc[p] * (1.0-flw) * f2*f3/callom[p]
+                leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]
+                frootc_alloc[p,v]   = availc[p] * f1/callom[p]
+              
+              livestemc_alloc[p,v] = availc[p] * flw*f2/callom[p]
+              deadstemc_alloc[p,v] = availc[p] * (1.0-flw) * f2/callom[p]
+              livecrootc_alloc[p]  = availc[p] * flw*(f2*f3)/callom[p]
+              deadcrootc_alloc[p]  = availc[p] * (1.0-flw) * f2*f3/callom[p]
               #Calculate nitrogen demand from smminn, subtracting off retranslocated proportion
               plant_ndemand[p] = availc[p] * nallom[p]/callom[p] - annsum_retransn[p]*gpp[p,v+1]/annsum_gpp[p]
               sum_plant_ndemand = sum_plant_ndemand + pftwt[p] * plant_ndemand[p]
@@ -449,6 +489,7 @@ class MyModel(object):
                 fpg[p,v] = parms['fpg'][p]
                 cstor_alloc[p] = availc[p] * (1.0 - parms['fpg'][p])
               gr[p,v+1] = availc[p] * fpg[p,v] * frg * (1.0 + f1+f2*(1+f3))/callom[p]
+            #end of loop over pfts
 
             #Calculate resistance term and actual uptake f_om npool
             ctc_cn = numpy.zeros([8,self.nsoil_layers], numpy.float)+10.0   #default SOM pools to 10
@@ -503,6 +544,9 @@ class MyModel(object):
             #Mortality fluxes
             leafc_litter_vr      = numpy.zeros([self.nsoil_layers],numpy.float)
             frootc_litter_vr     = numpy.zeros([self.nsoil_layers],numpy.float)
+            ##
+            frootc_litter_vr     = numpy.zeros([self.nroot_orders,self.nsoil_layers],numpy.float)
+
             leafn_litter_vr      = numpy.zeros([self.nsoil_layers],numpy.float)
             livestemc_litter_vr  = numpy.zeros([self.nsoil_layers],numpy.float)
             livecrootc_litter_vr = numpy.zeros([self.nsoil_layers],numpy.float)
@@ -512,9 +556,12 @@ class MyModel(object):
             nstor_litter_vr      = numpy.zeros([self.nsoil_layers],numpy.float)
             for nl in range(0,self.nsoil_layers):
               for p in range(0,npfts):
-                leafc_litter_vr[nl]  = leafc_litter_vr[nl] + pftwt[p] * leafc_litter[p] * surf_prof[nl]
+                leafc_litter_vr[nl]  = leafc_litter_vr[nl]  + pftwt[p] * leafc_litter[p]  * surf_prof[nl]
                 frootc_litter_vr[nl] = frootc_litter_vr[nl] + pftwt[p] * frootc_litter[p] * surf_prof[nl]
-                leafn_litter_vr[nl]  = leafn_litter_vr[nl] + pftwt[p] * leafn_litter[p] * surf_prof[nl]
+                ########
+                frootc_litter_vr[:,nl]=frootc_litter_vr[:,nl]+pftwt[p] * frootc_litter[p,:] * surf_prof[nl]
+
+                leafn_litter_vr[nl]  = leafn_litter_vr[nl]  + pftwt[p] * leafn_litter[p]  * surf_prof[nl]
                 livestemc_litter_vr[nl] = livestemc_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
                         / 365.0 * livestemc[p,v] * surf_prof[nl]
                 livecrootc_litter_vr[nl] = livecrootc_litter_vr[nl] + pftwt[p] * parms['r_mort'][0] \
@@ -532,10 +579,12 @@ class MyModel(object):
               cstor_turnover[p] = parms['br_xr'][p] * (3600.*24.) * cstor[p,v] * trate
 
               #increment plant C pools
-              leafc[p,v+1]       = leafc[p,v]       + fpg[p,v]*leafc_alloc[p,v] + leafc_trans[p] - leafc_litter[p]
+              leafc[p,v+1]       = leafc[p,v]       + fpg[p,v]*leafc_alloc[p,v]   + leafc_trans[p] - leafc_litter[p]
               leafc_stor[p,v+1]  = leafc_stor[p,v]  + fpg[p,v]*leafcstor_alloc[p] - leafc_trans[p]
-              frootc[p,v+1]      = frootc[p,v]      + fpg[p,v]*frootc_alloc[p,v] + frootc_trans[p] - frootc_litter[p]
+              ##############
+              frootc[p,v+1]      = frootc[p,v]      + fpg[p,v]*frootc_alloc[p,v]   + frootc_trans[p] - frootc_litter[p]
               frootc_stor[p,v+1] = frootc_stor[p,v] + fpg[p,v]*frootcstor_alloc[p] - frootc_trans[p]
+              
               livestemc[p,v+1]   = livestemc[p,v]   + fpg[p,v]*livestemc_alloc[p,v] - parms['r_mort'][0] \
                       / 365.0 * livestemc[p,v] - livestemc_turnover[p]
               deadstemc[p,v+1]   = deadstemc[p,v]   + fpg[p,v]*deadstemc_alloc[p,v] - parms['r_mort'][0] \
@@ -564,18 +613,19 @@ class MyModel(object):
               annsum_npp_temp[p] = annsum_npp_temp[p]+npp[p,v]
               annsum_retransn_temp[p] = annsum_retransn_temp[p]+retransn[p]
               annsum_gpp_temp[p] = annsum_gpp_temp[p]+gpp[p,v]
+            # end of loop over npfts
 
             # ----------------- Litter and SOM decomposition model (CTC) --------------------
             ctc_input    = numpy.zeros([16,self.nsoil_layers],numpy.float)  #inputs to pool
             ctc_output   = numpy.zeros([16,self.nsoil_layers],numpy.float)  #Outputs from pool
             ctc_resp     = numpy.zeros([8,self.nsoil_layers],numpy.float)  #Respiration from pool
             #Litter inputs to the system
-              #Carbon
             for nl in range(0,self.nsoil_layers):
+              #Carbon
               ctc_input[0,nl] = leafc_litter_vr[nl]*parms['lf_flab'][p] + frootc_litter_vr[nl]*parms['fr_flab'][p]
               ctc_input[1,nl] = leafc_litter_vr[nl]*parms['lf_flig'][p] + frootc_litter_vr[nl]*parms['fr_flig'][p]
-              ctc_input[2,nl] = leafc_litter_vr[nl]*(1.0 - parms['lf_flab'][p] - parms['lf_flig'][p]) + frootc_litter_vr[nl]* \
-                           (1.0-parms['fr_flab'][p]-parms['fr_flig'][p])
+              ctc_input[2,nl] = leafc_litter_vr[nl]*(1.0 - parms['lf_flab'][p] - parms['lf_flig'][p]) + \
+                               frootc_litter_vr[nl]*(1.0-parms['fr_flab'][p]-parms['fr_flig'][p])
               ctc_input[7,nl] = livestemc_litter_vr[nl] + livecrootc_litter_vr[nl] + deadcrootc_litter_vr[nl] + deadstemc_litter_vr[nl] 
               #Nitrogen
               ctc_input[8,nl] = leafn_litter_vr[nl]*parms['lf_flab'][p] + \
