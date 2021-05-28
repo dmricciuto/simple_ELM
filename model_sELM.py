@@ -644,7 +644,7 @@ class MyModel(object):
                                                    frootc_trans[p]*numpy.array(froot_partition) - frootc_litter[p,:]
               #update frootc: pass frooc_t back to frootc
               # NEW
-              frootc[p,v+1] = numpy.sum(frootc_t[p,:,v+1],axis=1)
+              frootc[p,v+1] = numpy.sum(frootc_t[p,:,v+1])
 
 
               frootc_stor[p,v+1] = frootc_stor[p,v] + fpg[p,v]*frootcstor_alloc[p] - frootc_trans[p]
