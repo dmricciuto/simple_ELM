@@ -112,9 +112,9 @@ class MyModel(object):
         frootcn = numpy.zeros([npfts,nfroot_orders])
         fr_flab = numpy.zeros([npfts,nfroot_orders])
         fr_flig = numpy.zeros([npfts,nfroot_orders])
-        frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).transpose()
-        fr_flab[:,:] = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).transpose()
-        fr_flig[:,:] = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).transpose()
+        frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
+        fr_flab[:,:] = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).T
+        fr_flig[:,:] = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).T
         
         froot_partition = [1/nfroot_orders] * nfroot_orders
 
@@ -638,9 +638,9 @@ class MyModel(object):
               leafc_stor[p,v+1]  = leafc_stor[p,v]  + fpg[p,v]*leafcstor_alloc[p] - leafc_trans[p]
               
               # OLD
-              #frootc[p,v+1]      = frootc[p,v] + fpg[p,v]*frootc_alloc[p,v] + frootc_trans[p] - frootc_litter[p]
+              #frootc[p,v+1] = frootc[p,v] + fpg[p,v]*frootc_alloc[p,v] + frootc_trans[p] - frootc_litter[p]
               # NEW
-              frootc_t[p,:,v+1]    = frootc_t[p,:,v] + fpg[p,v]*frootc_alloc[p,v]*numpy.array(froot_partition) + \
+              frootc_t[p,:,v+1] = frootc_t[p,:,v] + fpg[p,v]*frootc_alloc[p,v]*numpy.array(froot_partition) + \
                                                    frootc_trans[p]*numpy.array(froot_partition) - frootc_litter[p,:]
               #update frootc: pass frooc_t back to frootc
               # NEW
@@ -818,7 +818,8 @@ class MyModel(object):
 
     def run_selm(self, spinup_cycles=0, lat_bounds=[-999,-999], lon_bounds=[-999,-999], \
                      do_monthly_output=False, do_output_forcings=False, pft=-1,          \
-                     prefix='model', seasonal_rootalloc=False, use_nn=False, ensemble=False, myoutvars=[], use_MPI=False):
+                     prefix='model', seasonal_rootalloc=False, use_nn=False, ensemble=False, \
+                     myoutvars=[], use_MPI=False, nfroot_orders=1):
 
         ens_torun=[]
         indx_torun=[]
@@ -949,7 +950,7 @@ class MyModel(object):
                     self.parms[self.ensemble_pnames[p]][self.ensemble_ppfts[p]] = self.parm_ensemble[i,p]
                 print('Starting SLEM instance')
                 self.selm_instance(self.parms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc, \
-                        pftwt=pftwt_torun[:,i]/100.0)
+                        pftwt=pftwt_torun[:,i]/100.0,nfroot_orders=nfroot_orders)
                 self.pftfrac[indy_torun[i],indx_torun[i],:] = pftwt_torun[:,i]
                 for v in myoutvars:
                   if (v in self.outvars and not (v in self.forcvars)):
@@ -1129,7 +1130,7 @@ class MyModel(object):
                   for p in range(0,len(self.ensemble_pnames)):
                     myparms[self.ensemble_pnames[p]] = self.parm_ensemble[k,p]
                 self.selm_instance(myparms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc, \
-                        pftwt=mypftwt/100.0 )
+                        pftwt=mypftwt/100.0, nfroot_orders=nfroot_orders)
                 for v in myoutvars:
                    if (v in self.outvars):
                      if (do_monthly_output):
