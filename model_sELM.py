@@ -108,7 +108,7 @@ class MyModel(object):
         ######################################
         # New VARs arisng from root complexity
         #####################################
-        frootc_t= numpy.zeros([npfts,nfroot_orders,self.nobs])
+        #frootc_t= numpy.zeros([npfts,nfroot_orders,self.nobs])
         frootcn = numpy.zeros([npfts,nfroot_orders])
         fr_flab = numpy.zeros([npfts,nfroot_orders])
         fr_flig = numpy.zeros([npfts,nfroot_orders])
@@ -137,8 +137,8 @@ class MyModel(object):
         # OLD
         frootc   = self.output['frootc_pft']
         # NEW
-        frootc_t = numpy.reshape(((numpy.repeat(frootc,[npfts,npfts],axis=0)).T * \
-                numpy.array(froot_partition*npfts)).T,(npfts,nfroot_orders,self.nobs))
+        frootc_t = numpy.reshape(((numpy.repeat(frootc,[nfroot_orders]*npfts,axis=0)).T * \
+                numpy.array(froot_partition*npfts)).T,(npfts,nfroot_orders,self.nobs+1))
 
         frootc_stor = self.output['frootc_stor_pft']
         livestemc   = self.output['livestemc_pft']
@@ -315,7 +315,7 @@ class MyModel(object):
               # OLD
               #frootc[p,0]      = frootc[p,self.nobs-1]
               # NEW
-              frootc_t[p,:,0]    = frootc[p,:,self.nobs-1]
+              frootc_t[p,:,0]    = frootc_t[p,:,self.nobs-1]
 
               livestemc[p,0]   = livestemc[p,self.nobs-1]
               deadstemc[p,0]   = deadstemc[p,self.nobs-1]
@@ -640,8 +640,12 @@ class MyModel(object):
               # OLD
               #frootc[p,v+1]      = frootc[p,v] + fpg[p,v]*frootc_alloc[p,v] + frootc_trans[p] - frootc_litter[p]
               # NEW
-              frootc_t[p,:,v+1]    = frootc_t[p,:,v] + fpg[p,v]*frootc_alloc[p,v]*froot_partition + \
-                                                   frootc_trans[p]*froot_partition - frootc_litter[p,:]
+              frootc_t[p,:,v+1]    = frootc_t[p,:,v] + fpg[p,v]*frootc_alloc[p,v]*numpy.array(froot_partition) + \
+                                                   frootc_trans[p]*numpy.array(froot_partition) - frootc_litter[p,:]
+              #update frootc: pass frooc_t back to frootc
+              # NEW
+              frootc[p,v+1] = numpy.sum(frootc_t[p,:,v+1],axis=1)
+
 
               frootc_stor[p,v+1] = frootc_stor[p,v] + fpg[p,v]*frootcstor_alloc[p] - frootc_trans[p]
               
@@ -811,9 +815,6 @@ class MyModel(object):
                 sminn_vr[nl,v+1] = max(sminn_vr[nl,v]*(1-bdnr) + nfix[v]*root_frac[0,nl] + ndep[v]*surf_prof[nl] - \
                                      fpi_vr[nl,v]*plant_ndemand_vr[nl] + ctc_to_sminn[nl], 0.0)
             
-            #update frootc: pass frooc_t back to frootc
-            # NEW
-            frootc = numpy.sum(frootc_t,axis=1)
 
     def run_selm(self, spinup_cycles=0, lat_bounds=[-999,-999], lon_bounds=[-999,-999], \
                      do_monthly_output=False, do_output_forcings=False, pft=-1,          \
