@@ -109,9 +109,9 @@ class MyModel(object):
         # New VARs arisng from root complexity
         #####################################
         #frootc_t= numpy.zeros([npfts,nfroot_orders,self.nobs])
-        frootcn = numpy.zeros([npfts,nfroot_orders])
-        fr_flab = numpy.zeros([npfts,nfroot_orders])
-        fr_flig = numpy.zeros([npfts,nfroot_orders])
+        frootcn = numpy.zeros([npfts,nfroot_orders],numpy.float)
+        fr_flab = numpy.zeros([npfts,nfroot_orders],numpy.float)
+        fr_flig = numpy.zeros([npfts,nfroot_orders],numpy.float)
         frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
         fr_flab[:,:] = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).T
         fr_flig[:,:] = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).T
@@ -277,7 +277,11 @@ class MyModel(object):
         frootc_litter = numpy.zeros([npfts,nfroot_orders], numpy.float)+0.0
 
         leafc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
+        # OLD
         frootc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
+        # NEW
+        frootc_litter_tot = numpy.zeros([npfts,nfroot_orders], numpy.float)+0.0
+        
         leafn_litter = numpy.zeros([npfts], numpy.float)+0.0
         livestemc_turnover = numpy.zeros([npfts], numpy.float)+0.0
         livecrootc_turnover = numpy.zeros([npfts], numpy.float)+0.0
