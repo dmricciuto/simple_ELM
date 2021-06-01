@@ -108,15 +108,21 @@ class MyModel(object):
         ######################################
         # New VARs arisng from root complexity
         #####################################
-        #frootc_t= numpy.zeros([npfts,nfroot_orders,self.nobs])
         frootcn = numpy.zeros([npfts,nfroot_orders],numpy.float)
         fr_flab = numpy.zeros([npfts,nfroot_orders],numpy.float)
         fr_flig = numpy.zeros([npfts,nfroot_orders],numpy.float)
+        # if nfroot_orders == 1:
+        #   frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
+        #   froot_partition = [1/nfroot_orders] * nfroot_orders
+        # else:
+        #   frootcn[:,:] = numpy.tile([30,54],(1,1))
+        #   froot_partition = [0.2, 0.8]
+        
         frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
         fr_flab[:,:] = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).T
         fr_flig[:,:] = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).T
-        
         froot_partition = [1/nfroot_orders] * nfroot_orders
+        
 
 
         #--------------- Initialize ------------------------
@@ -132,7 +138,7 @@ class MyModel(object):
         leafc       = self.output['leafc_pft']
         leafc_stor  = self.output['leafc_stor_pft']
         ##################
-        # A new 3-D frootc_t supplemented 
+        # A new 3-D frootc_t defined 
         ##################
         # OLD
         frootc   = self.output['frootc_pft']
@@ -278,7 +284,7 @@ class MyModel(object):
 
         leafc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
         # OLD
-        frootc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
+        #frootc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
         # NEW
         frootc_litter_tot = numpy.zeros([npfts,nfroot_orders], numpy.float)+0.0
         
@@ -320,6 +326,9 @@ class MyModel(object):
               #frootc[p,0]      = frootc[p,self.nobs-1]
               # NEW
               frootc_t[p,:,0]    = frootc_t[p,:,self.nobs-1]
+              frootc[p,0]        = sum(frootc_t[p,:,0])
+
+              lai[p,0]         = lai[p,self.nobs-1]
 
               livestemc[p,0]   = livestemc[p,self.nobs-1]
               deadstemc[p,0]   = deadstemc[p,self.nobs-1]
@@ -330,18 +339,18 @@ class MyModel(object):
             for nl in range(0,self.nsoil_layers):
               ctcpools_vr[:,nl,0]  = ctcpools_vr[:,nl,self.nobs-1]
               sminn_vr[nl,0]       = sminn_vr[nl,self.nobs-1]
-            if (s == spinup_cycles and spinup_cycles > 0):
-              #accelerated mortality and spinup
-              for p in range(0,npfts):
-                deadstemc[p,0] = deadstemc[p,0]*10
-                deadcrootc[p,0] = deadcrootc[p,0]*10
-              for nl in range(0,self.nsoil_layers):
-                ctcpools_vr[5,nl,0] = ctcpools_vr[5,nl,0]*5.0
-                ctcpools_vr[6,nl,0] = ctcpools_vr[6,nl,0]*30.0
-                ctcpools_vr[7,nl,0] = ctcpools_vr[7,nl,0]*3.0
-                ctcpools_vr[13,nl,0] = ctcpools_vr[13,nl,0]*5.0
-                ctcpools_vr[14,nl,0] = ctcpools_vr[14,nl,0]*30.0
-                ctcpools_vr[15,nl,0] = ctcpools_vr[15,nl,0]*3.0
+            # if (s == spinup_cycles and spinup_cycles > 0):
+            #   #accelerated mortality and spinup
+            #   for p in range(0,npfts):
+            #     deadstemc[p,0] = deadstemc[p,0]*10
+            #     deadcrootc[p,0] = deadcrootc[p,0]*10
+            #   for nl in range(0,self.nsoil_layers):
+            #     ctcpools_vr[5,nl,0] = ctcpools_vr[5,nl,0]*5.0
+            #     ctcpools_vr[6,nl,0] = ctcpools_vr[6,nl,0]*30.0
+            #     ctcpools_vr[7,nl,0] = ctcpools_vr[7,nl,0]*3.0
+            #     ctcpools_vr[13,nl,0] = ctcpools_vr[13,nl,0]*5.0
+            #     ctcpools_vr[14,nl,0] = ctcpools_vr[14,nl,0]*30.0
+            #     ctcpools_vr[15,nl,0] = ctcpools_vr[15,nl,0]*3.0
 
 
           for v in range(0,self.nobs):
@@ -381,7 +390,7 @@ class MyModel(object):
                    # OLD
                    #frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
                    # NEW
-                   frootc_litter[p,:]=min(frootc_litter_tot[p,:]/parms['ndays_off'][0], frootc_t[p,:,v])
+                   frootc_litter[p,:]=numpy.minimum(frootc_litter_tot[p,:]/parms['ndays_off'][0], frootc_t[p,:,v])
 
                    leafoff[p] = leafoff[p] - 1
                 else:
