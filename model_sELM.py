@@ -339,18 +339,18 @@ class MyModel(object):
             for nl in range(0,self.nsoil_layers):
               ctcpools_vr[:,nl,0]  = ctcpools_vr[:,nl,self.nobs-1]
               sminn_vr[nl,0]       = sminn_vr[nl,self.nobs-1]
-            # if (s == spinup_cycles and spinup_cycles > 0):
-            #   #accelerated mortality and spinup
-            #   for p in range(0,npfts):
-            #     deadstemc[p,0] = deadstemc[p,0]*10
-            #     deadcrootc[p,0] = deadcrootc[p,0]*10
-            #   for nl in range(0,self.nsoil_layers):
-            #     ctcpools_vr[5,nl,0] = ctcpools_vr[5,nl,0]*5.0
-            #     ctcpools_vr[6,nl,0] = ctcpools_vr[6,nl,0]*30.0
-            #     ctcpools_vr[7,nl,0] = ctcpools_vr[7,nl,0]*3.0
-            #     ctcpools_vr[13,nl,0] = ctcpools_vr[13,nl,0]*5.0
-            #     ctcpools_vr[14,nl,0] = ctcpools_vr[14,nl,0]*30.0
-            #     ctcpools_vr[15,nl,0] = ctcpools_vr[15,nl,0]*3.0
+            if (s == spinup_cycles and spinup_cycles > 0):
+              #accelerated mortality and spinup
+              for p in range(0,npfts):
+                deadstemc[p,0] = deadstemc[p,0]*10
+                deadcrootc[p,0] = deadcrootc[p,0]*10
+              for nl in range(0,self.nsoil_layers):
+                ctcpools_vr[5,nl,0] = ctcpools_vr[5,nl,0]*5.0
+                ctcpools_vr[6,nl,0] = ctcpools_vr[6,nl,0]*30.0
+                ctcpools_vr[7,nl,0] = ctcpools_vr[7,nl,0]*3.0
+                ctcpools_vr[13,nl,0] = ctcpools_vr[13,nl,0]*5.0
+                ctcpools_vr[14,nl,0] = ctcpools_vr[14,nl,0]*30.0
+                ctcpools_vr[15,nl,0] = ctcpools_vr[15,nl,0]*3.0
 
 
           for v in range(0,self.nobs):
