@@ -111,18 +111,21 @@ class MyModel(object):
         frootcn = numpy.zeros([npfts,nfroot_orders],numpy.float)
         fr_flab = numpy.zeros([npfts,nfroot_orders],numpy.float)
         fr_flig = numpy.zeros([npfts,nfroot_orders],numpy.float)
-        # if nfroot_orders == 1:
-        #   frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
-        #   froot_partition = [1/nfroot_orders] * nfroot_orders
-        # else:
-        #   frootcn[:,:] = numpy.tile([30,54],(1,1))
-        #   froot_partition = [0.2, 0.8]
-        
-        frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
-        fr_flab[:,:] = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).T
-        fr_flig[:,:] = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).T
-        froot_partition = [1/nfroot_orders] * nfroot_orders
-        
+        if nfroot_orders == 1:
+           frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
+           fr_flab[:,:] = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).T
+           fr_flig[:,:] = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).T
+           froot_partition = [1/nfroot_orders] * nfroot_orders
+        elif nfroot_orders == 2:
+           frootcn[:,:] = numpy.tile([10,74],    (1,1))
+           fr_flab[:,:] = numpy.tile([0.25,0.25],(1,1))
+           fr_flig[:,:] = numpy.tile([0.25,0.25],(1,1))
+           froot_partition = [0.3, 0.7] 
+        else:
+           frootcn[:,:] = numpy.tile([10,42,74],      (1,1))
+           fr_flab[:,:] = numpy.tile([0.25,0.25,0.25],(1,1))
+           fr_flig[:,:] = numpy.tile([0.25,0.25,0.25],(1,1))
+           froot_partition = [0.2, 0.3, 0.5]
 
 
         #--------------- Initialize ------------------------
@@ -342,8 +345,8 @@ class MyModel(object):
             if (s == spinup_cycles and spinup_cycles > 0):
               #accelerated mortality and spinup
               for p in range(0,npfts):
-                deadstemc[p,0] = deadstemc[p,0]*10
-                deadcrootc[p,0] = deadcrootc[p,0]*10
+                deadstemc[p,0] = deadstemc[p,0]*1     ## 10 -> 1
+                deadcrootc[p,0] = deadcrootc[p,0]*1   ## 10 -> 1
               for nl in range(0,self.nsoil_layers):
                 ctcpools_vr[5,nl,0] = ctcpools_vr[5,nl,0]*5.0
                 ctcpools_vr[6,nl,0] = ctcpools_vr[6,nl,0]*30.0
