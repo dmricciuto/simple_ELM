@@ -26,6 +26,7 @@ class MyModel(object):
         pct_nat_pft = elmsurfdat['PCT_NAT_PFT'][:].squeeze()
         pftind = numpy.nonzero(pct_nat_pft)[0]
         print('Number of active PFTS: '+str(len(pftind)))
+        print('PFT index:',pftind)
         self.pftfrac = pct_nat_pft[pftind]
         self.npfts = len(pftind)
 
@@ -92,15 +93,15 @@ class MyModel(object):
           self.nnmodel = pickle.load(file)
         nsamples=20000
         self.nparms_nn = 14  #15
-        ptrain_orig   = (numpy.loadtxt('./GPP_model_NN/ptrain_daily.dat'))[0:nsamples,:]
+        ptrain_orig  = (numpy.loadtxt('./GPP_model_NN/ptrain_daily.dat'))[0:nsamples,:]
         self.pmin_nn = numpy.zeros([self.nparms_nn], numpy.float)
         self.pmax_nn = numpy.zeros([self.nparms_nn], numpy.float)
         for i in range(0,self.nparms_nn):
           self.pmin_nn[i] = min(ptrain_orig[:,i])
           self.pmax_nn[i] = max(ptrain_orig[:,i])
 
-    def selm_instance(self, parms, use_nn=False, seasonal_rootalloc=False, spinup_cycles=0, \
-      pftwt=[1.0,0,0],nfroot_orders=1):
+    def selm_instance(self, parms, use_nn=False, seasonal_rootalloc=False,
+                      spinup_cycles=0, pftwt=[1.0,0,0],nfroot_orders=1):
 
         calc_nlimitation = True
         npfts = self.npfts
@@ -108,24 +109,49 @@ class MyModel(object):
         ######################################
         # New VARs arisng from root complexity
         #####################################
+        froot_partition_0 = [1/nfroot_orders] * nfroot_orders
+
         frootcn = numpy.zeros([npfts,nfroot_orders],numpy.float)
         fr_flab = numpy.zeros([npfts,nfroot_orders],numpy.float)
         fr_flig = numpy.zeros([npfts,nfroot_orders],numpy.float)
+        # evergreen fine root longevity
+        froot_long = numpy.zeros([npfts,nfroot_orders],numpy.float)
+
         if nfroot_orders == 1:
+           froot_partition = [1/nfroot_orders] * nfroot_orders
            frootcn[:,:] = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
            fr_flab[:,:] = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).T
            fr_flig[:,:] = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).T
-           froot_partition = [1/nfroot_orders] * nfroot_orders
+          
+           froot_long[:,:] = numpy.tile(parms['froot_long'],(nfroot_orders,1)).T
+           froot_lit_partition = numpy.array([1]*nfroot_orders)
         elif nfroot_orders == 2:
-           frootcn[:,:] = numpy.tile([10,74],    (1,1))
-           fr_flab[:,:] = numpy.tile([0.25,0.25],(1,1))
-           fr_flig[:,:] = numpy.tile([0.25,0.25],(1,1))
-           froot_partition = [0.3, 0.7] 
-        else:
-           frootcn[:,:] = numpy.tile([10,42,74],      (1,1))
-           fr_flab[:,:] = numpy.tile([0.25,0.25,0.25],(1,1))
-           fr_flig[:,:] = numpy.tile([0.25,0.25,0.25],(1,1))
-           froot_partition = [0.2, 0.3, 0.5]
+           #froot_partition = [0.6, 0.4] 
+           #frootcn[:,:] = numpy.tile([35,60],(npfts,1)) #24,60
+           froot_partition = [0.2857, 1.-0.2857]
+           frootcn[:,:] = numpy.tile([24,60],(npfts,1))
+
+           fr_flab[:,:] = numpy.tile([0.25,0.25],(npfts,1))
+           fr_flig[:,:] = numpy.tile([0.25,0.25],(npfts,1))
+           
+           #froot_long[:,:] = numpy.tile([1.0,1.5],(1,1))
+           froot_long[:,:] = numpy.tile([i*2 for i in parms['froot_long']],(nfroot_orders,1)).T *\
+             numpy.array([0.4,0.6]) #0.4, 0.6
+           froot_lit_partition = numpy.array([1, 1])  
+        elif nfroot_orders == 3:
+           #froot_partition = [0.5, 0.3, 0.2] 
+           #frootcn[:,:] = numpy.tile([35,48.5,60],(npfts,1))
+           froot_partition = [0.2, 0.3, 0.5] 
+           frootcn[:,:] = numpy.tile([24,42,60],(npfts,1))
+
+           fr_flab[:,:] = numpy.tile([0.25,0.25,0.25],(npfts,1))
+           fr_flig[:,:] = numpy.tile([0.25,0.25,0.25],(npfts,1))
+           
+           #froot_long[:,:]   = numpy.tile([0.5,1.0,1.5],(1,1))
+           froot_long[:,:] = numpy.tile([i*3 for i in parms['froot_long']],(nfroot_orders,1)).T *\
+             numpy.array([0.2,0.3,0.5]) #0.2,0.3,0.5
+           froot_lit_partition = numpy.array([1, 1, 1])
+           
 
 
         #--------------- Initialize ------------------------
@@ -147,7 +173,7 @@ class MyModel(object):
         frootc   = self.output['frootc_pft']
         # NEW
         frootc_t = numpy.reshape(((numpy.repeat(frootc,[nfroot_orders]*npfts,axis=0)).T * \
-                numpy.array(froot_partition*npfts)).T,(npfts,nfroot_orders,self.nobs+1))
+                numpy.array(froot_partition_0*npfts)).T,(npfts,nfroot_orders,self.nobs+1))
 
         frootc_stor = self.output['frootc_stor_pft']
         livestemc   = self.output['livestemc_pft']
@@ -174,7 +200,7 @@ class MyModel(object):
 
         #vertically resolved variables (local)
         ##############################
-        # root_frac can be made order-specific, BUT assumed being the same for now
+        # root_frac can be made order-specific, BUT assumed to be the same for now
         ##############################
         root_frac = numpy.zeros([npfts,self.nsoil_layers], numpy.float)
         surf_prof = numpy.zeros([self.nsoil_layers], numpy.float)
@@ -345,7 +371,7 @@ class MyModel(object):
             if (s == spinup_cycles and spinup_cycles > 0):
               #accelerated mortality and spinup
               for p in range(0,npfts):
-                deadstemc[p,0] = deadstemc[p,0]*1     ## 10 -> 1
+                deadstemc[p,0] = deadstemc[p,0]*1   ## 10 -> 1
                 deadcrootc[p,0] = deadcrootc[p,0]*1   ## 10 -> 1
               for nl in range(0,self.nsoil_layers):
                 ctcpools_vr[5,nl,0] = ctcpools_vr[5,nl,0]*5.0
@@ -387,7 +413,7 @@ class MyModel(object):
                    # OLD
                    #frootc_litter_tot[p] = frootc[p,v]
                    # NEW
-                   frootc_litter_tot[p,:] = frootc_t[p,:,v]
+                   frootc_litter_tot[p,:] = frootc_t[p,:,v] * froot_lit_partition
                 if (leafoff[p] > 0):
                    leafc_litter[p]  = min(leafc_litter_tot[p]  / parms['ndays_off'][0], leafc[p,v])
                    # OLD
@@ -402,7 +428,7 @@ class MyModel(object):
                    #frootc_litter[p] = 0.0
                    # NEW
                    frootc_litter[p,:] = 0.0
-                leafn_litter[p] = leafc_litter[p] /parms['lflitcn'][p]
+                leafn_litter[p] = leafc_litter[p] / parms['lflitcn'][p]
                 retransn[p]     = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
               else:               #Evergreen phenology / leaf mortality`
                 retransn[p] = leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) * \
@@ -410,7 +436,7 @@ class MyModel(object):
                 leafc_litter[p]  = parms['r_mort'][0] * leafc[p,v]/365.0  + leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. )
                 leafn_litter[p]  = parms['r_mort'][0] * leafc[p,v]/365.0  / parms['leafcn'][p] +  \
                                leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) / parms['lflitcn'][p]
-                ################
+                ##############
                 # parms['r_mort'] & parms['froot_long'] both can be tailored to be order-specific
                 ##############
                 # OLD
@@ -418,7 +444,7 @@ class MyModel(object):
                 #                     frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)
                 # NEW
                 frootc_litter[p,:] = parms['r_mort'][0] * frootc_t[p,:,v]/365.0 + \
-                                     frootc_t[p,:,v] * 1.0 / (parms['froot_long'][p]*365.)
+                                     frootc_t[p,:,v] * 1.0 / (froot_long[p,:]*365.)
 
               #Calculate live wood turnover
               livestemc_turnover[p]  = parms['lwtop_ann'][0] / 365. * livestemc[p,v]
@@ -471,7 +497,7 @@ class MyModel(object):
               #Maintenance respiration
               trate = parms['q10_mr'][0]**((0.5*(tmax[v]+tmin[v])-25.0)/25.0)
               ####################
-              # frootc respiration
+              # change frootc respiration
               ####################
               # OLD
               #mr[p,v+1] = (leafc[p,v]/parms['leafcn'][p] + frootc[p,v]/parms['frootcn'][p] + \
@@ -482,8 +508,8 @@ class MyModel(object):
                           (livecrootc[p,v]+livestemc[p,v])/max(parms['livewdcn'][p],10.)) * \
                           (parms['br_mr'][0]*24*3600)*trate
               #Nutrient limitation
-              availc[p] = max(gpp[p,v+1]-mr[p,v+1],0.0)
-              xsmr[p]   = max(mr[p,v+1]-gpp[p,v+1],0.0)
+              availc[p] = max(gpp[p,v+1] - mr[p,v+1], 0.0)
+              xsmr[p]   = max(mr[p,v+1]  - gpp[p,v+1],0.0)
 
               #---------------4.  Allocation and growth respiration -------------------
               frg  = parms['grperc'][p]
@@ -513,7 +539,7 @@ class MyModel(object):
               #      f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
               #      f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
               # NEW
-              nallom[p] = 1.0 / parms['leafcn'][p] + f1 / frootcn[p,:].mean() + \
+              nallom[p] = 1.0 / parms['leafcn'][p] + f1 * sum(numpy.array(froot_partition)/frootcn[p,:]) + \
                     f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
                     f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
               #########################
@@ -606,9 +632,8 @@ class MyModel(object):
             ############
             #Mortality fluxes
             leafc_litter_vr      = numpy.zeros([self.nsoil_layers],numpy.float)
-            
             # OLD
-            #frootc_litter_vr     = numpy.zeros([self.nsoil_layers],numpy.float)
+            #frootc_litter_vr    = numpy.zeros([self.nsoil_layers],numpy.float)
             # NEW
             frootc_litter_vr     = numpy.zeros([nfroot_orders,self.nsoil_layers],numpy.float)
 
@@ -662,7 +687,6 @@ class MyModel(object):
               # NEW
               frootc[p,v+1] = numpy.sum(frootc_t[p,:,v+1])
 
-
               frootc_stor[p,v+1] = frootc_stor[p,v] + fpg[p,v]*frootcstor_alloc[p] - frootc_trans[p]
               
               livestemc[p,v+1]   = livestemc[p,v]   + fpg[p,v]*livestemc_alloc[p,v] - parms['r_mort'][0] \
@@ -698,7 +722,7 @@ class MyModel(object):
             # ----------------- Litter and SOM decomposition model (CTC) --------------------
             ctc_input    = numpy.zeros([16,self.nsoil_layers],numpy.float)  #inputs to pool
             ctc_output   = numpy.zeros([16,self.nsoil_layers],numpy.float)  #Outputs from pool
-            ctc_resp     = numpy.zeros([8,self.nsoil_layers],numpy.float)  #Respiration from pool
+            ctc_resp     = numpy.zeros([8,self.nsoil_layers],numpy.float)   #Respiration from pool
             #Litter inputs to the system
             ##############################
             #Changes arising from froot_litter_vr being order-specific
@@ -842,6 +866,7 @@ class MyModel(object):
         indy_torun=[]
         pftwt_torun = numpy.zeros([self.npfts, 10000000], numpy.float)
         n_active=0
+
         if (self.site == 'none'):
          if (use_MPI):
            from mpi4py import MPI
@@ -1012,14 +1037,14 @@ class MyModel(object):
               for p in range(0,len(self.ensemble_pnames)):
                 parms[self.ensemble_pnames[p]][self.ensemble_ppfts[p]] = self.parm_ensemble[ens_torun[n_job-1],p]
 
-            comm.send(all_ensembles_onejob, dest=n_job, tag=300)
-            comm.send(do_output_forcings,   dest=n_job, tag=400)
-            comm.send(self.forcings,   dest = n_job, tag=6)
-            comm.send(self.start_year, dest = n_job, tag=7)
-            comm.send(self.end_year,   dest = n_job, tag=8)
-            comm.send(self.nobs,       dest = n_job, tag=9)
-            comm.send(self.lat,        dest = n_job, tag=10)
-            comm.send(self.forcvars,   dest = n_job, tag=11)
+            comm.send(all_ensembles_onejob, dest = n_job, tag=300)
+            comm.send(do_output_forcings,   dest = n_job, tag=400)
+            comm.send(self.forcings,        dest = n_job, tag=6)
+            comm.send(self.start_year,      dest = n_job, tag=7)
+            comm.send(self.end_year,        dest = n_job, tag=8)
+            comm.send(self.nobs,            dest = n_job, tag=9)
+            comm.send(self.lat,             dest = n_job, tag=10)
+            comm.send(self.forcvars,        dest = n_job, tag=11)
             if (all_ensembles_onejob):
               comm.send(self.parm_ensemble,   dest=n_job, tag=100)
               comm.send(self.ensemble_pnames, dest=n_job, tag=101)
@@ -1033,7 +1058,9 @@ class MyModel(object):
             process = comm.recv(source=MPI.ANY_SOURCE, tag=3)
             thisjob = comm.recv(source=process, tag=4)
             myoutput = comm.recv(source=process, tag=5)
+            
             print('Received %d'%(thisjob))
+
             n_done = n_done+1
             comm.send(n_job, dest=process, tag=1)
             comm.send(0,     dest=process, tag=2)
@@ -1064,11 +1091,11 @@ class MyModel(object):
                 for k in range(0,self.ne):
                   model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = \
                           myoutput[v][k,:]
-              else:
-                if ('_vr' in v or '_pft' in v):
+              elif(v in self.outvars and not (v in self.forcvars)):
+                if (('_vr' in v or '_pft' in v) and not 'ctcpools' in v):
                   model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
                                     = myoutput[v][0,:,:]
-                else:
+                elif(v != 'ctcpools_vr'):
                   model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
                                     = myoutput[v][0,:]
             self.pftfrac[indy_torun[thisjob-1],indx_torun[thisjob-1],:] = pftwt_torun[:,thisjob-1]
@@ -1089,33 +1116,34 @@ class MyModel(object):
                 for k in range(0,self.ne):
                   model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = \
                         myoutput[v][k,:]
-              else:
-                if ('_vr' in v or '_pft' in v):
+              elif(v in self.outvars and not (v in self.forcvars)):
+                if (('_vr' in v or '_pft' in v) and not 'ctcpools' in v):
                   model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
                                     = myoutput[v][0,:,:]
-                else:
+                elif(v != 'ctcpools_vr'):
                   model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
                                     = myoutput[v][0,:]
             self.pftfrac[indy_torun[thisjob-1],indx_torun[thisjob-1],:] = pftwt_torun[:,thisjob-1]
+           
            self.write_nc_output(model_output, do_monthly_output=do_monthly_output, prefix=prefix)
            #MPI.Finalize()
         #Slave
         else:
           status=0
           while status == 0:
-            myjob = comm.recv(source=0, tag=1)
+            myjob  = comm.recv(source=0, tag=1)
             status = comm.recv(source=0, tag=2)
             if (status == 0):
               all_ensembles_onejob = comm.recv(source=0, tag=300)
               do_output_forcings   = comm.recv(source=0, tag=400)
-              self.forcings = comm.recv(source = 0, tag = 6)
+              self.forcings   = comm.recv(source=0, tag=6)
               self.start_year = comm.recv(source=0, tag=7)
               self.end_year   = comm.recv(source=0, tag=8)
               self.nobs       = comm.recv(source=0, tag=9)
               self.lat        = comm.recv(source=0, tag=10)
               self.forcvars   = comm.recv(source=0, tag=11)
               if (all_ensembles_onejob):
-                self.parm_ensemble = comm.recv(source=0, tag=100)
+                self.parm_ensemble   = comm.recv(source=0, tag=100)
                 self.ensemble_pnames = comm.recv(source=0, tag=101)
               else:
                 myparms         = comm.recv(source=0, tag=100)
@@ -1145,8 +1173,10 @@ class MyModel(object):
                   myparms = self.pdefault
                   for p in range(0,len(self.ensemble_pnames)):
                     myparms[self.ensemble_pnames[p]] = self.parm_ensemble[k,p]
+                
                 self.selm_instance(myparms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc, \
                         pftwt=mypftwt/100.0, nfroot_orders=nfroot_orders)
+                
                 for v in myoutvars:
                    if (v in self.outvars):
                      if (do_monthly_output):
@@ -1169,12 +1199,13 @@ class MyModel(object):
                         thisoutput_ens[v] = numpy.zeros([k_max,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
                       elif ('_pft' in v):
                         thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,max(thisoutput[v].shape)], numpy.float)
-                      else:
+                      elif(v != 'ctcpools_vr'):
                         thisoutput_ens[v] = numpy.zeros([k_max, len(thisoutput[v])], numpy.float)
-                   if (('_vr' in v) or ('_pft' in v)):
+                   # NOTE: ctcpools
+                   if (('_vr' in v) or ('_pft' in v) and not 'ctcpools' in v):
                      thisoutput_ens[v][k,:,:] = thisoutput[v]
-                   else:
-                     thisoutput_ens[v][k,:] = thisoutput[v]
+                   elif(v != 'ctcpools_vr'):
+                     thisoutput_ens[v][k,:]   = thisoutput[v]
 
               comm.send(rank,  dest=0, tag=3)
               comm.send(myjob, dest=0, tag=4)
@@ -1403,6 +1434,15 @@ class MyModel(object):
     #Load actual observations and uncertainties
 
     def generate_ensemble(self, n_ensemble, pnames, ppfts, fname='', normalized=False):
+      """
+      
+      Parameters
+        n_ensemble: integer
+        pnames:     list of parameter names participating ensemble runs
+        ppfts:      list of pft to participate ensemble runs
+        fname:
+      """
+      
       self.parm_ensemble = numpy.zeros([n_ensemble,len(pnames)])
       self.ensemble_pnames = pnames
       self.ensemble_ppfts  = ppfts
@@ -1425,9 +1465,9 @@ class MyModel(object):
       else:
         for n in range(0,n_ensemble):
           # HACK: to have identical ensemble members uncomment line below
-          # numpy.random.seed(2018)
+          #numpy.random.seed(2018)
           for p in range(0,len(pnames)):
             #Sample uniformly from the parameter space
             self.parm_ensemble[n,p] = numpy.random.uniform(low=self.pmin[pnames[p]][ppfts[p]], \
                   high=self.pmax[pnames[p]][ppfts[p]])
-        #numpy.savetxt('inputs.txt', self.parm_ensemble)
+        numpy.savetxt('inputs.txt', self.parm_ensemble)
