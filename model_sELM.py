@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from math import sin, cos, sqrt, atan2, radians
 import math, time, os
 import utils
+#import sys
 #import load_forcings
 
 class MyModel(object):
@@ -166,11 +167,7 @@ class MyModel(object):
         lai         = self.output['lai_pft']
         leafc       = self.output['leafc_pft']
         leafc_stor  = self.output['leafc_stor_pft']
-        ##################
-        # A new 3-D frootc_t defined 
-        ##################
-        # OLD: 
-        frootc   = self.output['frootc_pft']
+        frootc      = self.output['frootc_pft']
         # Added for tracking root-based mass,but sumed back to frootc
         frootc_t = numpy.reshape(((numpy.repeat(frootc,[nfroot_orders]*npfts,axis=0)).T * \
                 numpy.array(froot_partition_0*npfts)).T,(npfts,nfroot_orders,self.nobs+1))
@@ -200,7 +197,7 @@ class MyModel(object):
 
         ##############################
         #vertically resolved variables (local)
-        # ...root_frac can be made order-specific, BUT assumed to be the same for now
+        # ...root_frac can be made order-specific, BUT assumed to be the same
         # ...However, a depth correction coefficient for longevity added
         root_frac = numpy.zeros([npfts,self.nsoil_layers], numpy.float)
         surf_prof = numpy.zeros([self.nsoil_layers], numpy.float)
@@ -216,8 +213,10 @@ class MyModel(object):
           soil_dz    = numpy.zeros([self.nsoil_layers], numpy.float)
           soil_hi    = numpy.zeros([self.nsoil_layers], numpy.float)
           soil_depth = numpy.zeros([self.nsoil_layers], numpy.float)
+          
           for i in range(0,self.nsoil_layers):
             soil_nodes[i] = 0.025*(numpy.exp(0.5*(i+0.5))-1)
+           
           for i in range(0,self.nsoil_layers):
             if (i == 0):
               soil_dz[i] = 0.5*(soil_nodes[0]+soil_nodes[1])
@@ -230,7 +229,9 @@ class MyModel(object):
             else: 
               soil_dz[i] = 1.5058
               soil_hi[i] = 3.8018   #layer 10 from CLM
-              soil_depth[i] = soil_hi[i-1]+soil_dz[i]/2.0 
+              soil_depth[i] = soil_hi[i-1]+soil_dz[i]/2.0
+            
+            surf_prof[i] = (numpy.exp(-10.0*soil_nodes[i])) / soil_dz[i]
             depth_scalar[i] = math.exp(-soil_depth[i] / decomp_depth_efolding)
             # longevity correction for depth
             long_scalar[i]  = 1. + numpy.exp(-soil_depth[i] / decomp_depth_efolding)
@@ -238,21 +239,18 @@ class MyModel(object):
           #CTAM root profile
           # BWANG: a generic explicit fine root systems from a single pool to multi-pools
           #    root_frac[p,i] -> root_frac[o,p,i]
-          #################################
           for i in range(0,self.nsoil_layers):
             for p in range(0,npfts):
               if (i == 0):
                 root_frac[p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*0.0)+ \
-                                    numpy.exp(-1.0*parms['rootb_par'][p]*0.0) - \
-                                    numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
-                                    numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*0.0)- \
+                                      numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
               else:
                 root_frac[p,i] = 0.5*(numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i-1])+ \
-                                    numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i-1]) - \
-                                    numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
-                                    numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
-            surf_prof[i] = (numpy.exp(-10.0*soil_nodes[i])) / soil_dz[i]
-        
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i-1]) - \
+                                      numpy.exp(-1.0*parms['roota_par'][p]*soil_hi[i]) - \
+                                      numpy.exp(-1.0*parms['rootb_par'][p]*soil_hi[i]) )
         # normalization
         for p in range(0,npfts):
           root_frac[p,:] = root_frac[p,:]/sum(root_frac[p,:])
@@ -263,10 +261,9 @@ class MyModel(object):
           if parms['season_decid'][p] == 1:
             leafc_stor[p,0] = 10.0
           else:
-            leafc[p,0]      = 10.0
-         
+            leafc[p,0]      = 10.0 
         nstor[:,0]       = 1.0
-        ctcpools_vr[6,:,0] = parms['soil4ci'][0]
+        ctcpools_vr[6,:,0]  = parms['soil4ci'][0]
         ctcpools_vr[14,:,0] = parms['soil4ci'][0]/10.0   #ASSUME CN of 10
 
         #Forcings
@@ -312,7 +309,7 @@ class MyModel(object):
         # OLD
         #frootc_litter = numpy.zeros([npfts], numpy.float)+0.0
         # NEW
-        frootc_litter = numpy.zeros([npfts,nfroot_orders], numpy.float)+0.0
+        #frootc_litter = numpy.zeros([npfts,nfroot_orders], numpy.float)+0.0
         frootc_litter_ovr=numpy.zeros([npfts,nfroot_orders,self.nsoil_layers], numpy.float)+0.0
         
         leafc_litter_tot = numpy.zeros([npfts], numpy.float)+0.0
@@ -360,9 +357,7 @@ class MyModel(object):
               # NEW
               frootc_t[p,:,0]    = frootc_t[p,:,self.nobs-1]
               frootc[p,0]        = sum(frootc_t[p,:,0])
-
               lai[p,0]         = lai[p,self.nobs-1]
-
               livestemc[p,0]   = livestemc[p,self.nobs-1]
               deadstemc[p,0]   = deadstemc[p,self.nobs-1]
               livecrootc[p,0]  = livecrootc[p,self.nobs-1]
@@ -389,9 +384,9 @@ class MyModel(object):
           for v in range(0,self.nobs):
             sum_plant_ndemand = 0.0
 
-
             #frootc_litter_vr = numpy.zeros([nfroot_orders,self.nsoil_layers],numpy.float)
 
+            # loop for ?
             for p in range(0,npfts):
               
               ###########################
@@ -441,7 +436,17 @@ class MyModel(object):
                    # OLD
                    #frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
                    # NEW
-                   frootc_litter[p,:]=numpy.minimum(frootc_litter_tot[p,:]/parms['ndays_off'][0], frootc_t[p,:,v])
+                   #frootc_litter[p,:]=numpy.minimum(frootc_litter_tot[p,:]/parms['ndays_off'][0], frootc_t[p,:,v])
+                   
+                   if nfroot_orders == 1:
+                     frootc_litter_ovr[p,:,:] = numpy.minimum(frootc_litter_tot[p,:]/parms['ndays_off'][0], frootc_t[p,:,v])*surf_prof
+                   elif nfroot_orders==3:
+                     #T root
+                     frootc_litter_ovr[p,2,:] = numpy.minimum(frootc_litter_tot[p,2]/parms['ndays_off'][0], frootc_t[p,2,v])*surf_prof
+                     #A root
+                     frootc_litter_ovr[p,1,:] = numpy.minimum(frootc_litter_tot[p,1]/parms['ndays_off'][0], frootc_t[p,1,v])*surf_prof
+                     #M root
+                     frootc_litter_ovr[p,0,:] = numpy.minimum(frootc_litter_tot[p,0]/parms['ndays_off'][0], frootc_t[p,0,v])*surf_prof
 
                    leafoff[p] = leafoff[p] - 1
                 else:
@@ -449,7 +454,7 @@ class MyModel(object):
                    # OLD
                    #frootc_litter[p] = 0.0
                    # NEW
-                   frootc_litter[p,:] = 0.0
+                   frootc_litter_ovr[p,:,:] = 0.0
                 leafn_litter[p] = leafc_litter[p] / parms['lflitcn'][p]
                 retransn[p]     = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
               else:               #Evergreen phenology / leaf mortality
@@ -482,7 +487,7 @@ class MyModel(object):
                   # frootc_litter[p,2] = parms['r_mort'][0] * frootc_t[p,2,v]/365.0 + \
                   #                     frootc_t[p,2,v] * 1.0 / (froot_long[p,2]*365.)
                   frootc_litter_ovr[p,2,:] = (long_scalar*parms['r_mort'][0] * frootc_t[p,2,v]/365.0 + \
-                                             frootc_t[p,2,v] * 1.0 / (long_scalar*froot_long[p,2]*365.))*\
+                                             frootc_t[p,2,v] * 1.0 / (froot_long[p,2]*365.))*\
                                              surf_prof
 
                   #A root
@@ -490,9 +495,9 @@ class MyModel(object):
                   #                     frootc_t[p,1,v] * 1.0 / (froot_long[p,1]*365.) + \
                   #                     frootc_litter[p,2] * 1/numpy.exp(3/4)
                   frootc_litter_ovr[p,1,:]=(long_scalar*parms['r_mort'][0] * frootc_t[p,1,v]/365.0 + \
-                                          frootc_t[p,1,v] * 1.0 / (long_scalar*froot_long[p,1]*365.))*\
+                                          frootc_t[p,1,v] * 1.0 / (froot_long[p,1]*365.))*\
                                           surf_prof +\
-                                          frootc_litter_ovr[p,2,:] * 1/numpy.exp(3/4)  
+                                          frootc_litter_ovr[p,2,:] * 1/numpy.exp(1/4)  
                   #M root
                   # frootc_litter[p,0] = parms['r_mort'][0] * frootc_t[p,0,v]/365.0 + \
                   #                      frootc_t[p,0,v] * 1.0 / (froot_long[p,0]*365.) + \
@@ -500,7 +505,7 @@ class MyModel(object):
                   frootc_litter_ovr[p,0,:]=(long_scalar*parms['r_mort'][0] * frootc_t[p,0,v]/365.0 + \
                                            frootc_t[p,0,v] * 1.0 / (froot_long[p,0]*365.))*\
                                            surf_prof +\
-                                           frootc_litter_ovr[p,1,:] * 1/numpy.exp(3/4) 
+                                           frootc_litter_ovr[p,1,:] * 1/numpy.exp(1/4) 
 
               #Calculate live wood turnover
               livestemc_turnover[p]  = parms['lwtop_ann'][0] / 365. * livestemc[p,v]
@@ -579,17 +584,17 @@ class MyModel(object):
                   if (annsum_gpp_temp[p]/annsum_gpp[p] > parms['froot_phen_peak'][p]- \
                           parms['froot_phen_width'][p]/2.0 and annsum_gpp_temp[p]/annsum_gpp[p] \
                           < parms['froot_phen_peak'][p]+parms['froot_phen_width'][p]/2.0):
-                    #f1 = f1*1.0/(parms['froot_phen_width'][p])
-                    f1 = 1.0
+                    f1 = f1*1.0/(parms['froot_phen_width'][p])
+                    #f1 = 1.0
                     # Partitioning of M-A-T changed
                     froot_partition = [0.5,0.3,0.2]
                   else:
-                    f1 = 1.0
+                    f1 = f1
+                    froot_partition = [0.2,0.3,0.5]
                   #Differentiate between transportive roots (T), absorptive (A), and Mycorhizal(M) 
 
               if (parms['stem_leaf'][p] < 0):
-                f2   = max(-1.0*parms['stem_leaf'][p]/(1.0+numpy.exp(-0.004*(annsum_npp[p] - \
-                               300.0))) - 0.4, 0.1)
+                f2   = max(-1.0*parms['stem_leaf'][p]/(1.0+numpy.exp(-0.004*(annsum_npp[p] - 300.0))) - 0.4, 0.1)
                 f3   = parms['croot_stem'][p]
               else:
                 f2 = parms['stem_leaf'][p]
@@ -637,7 +642,7 @@ class MyModel(object):
                 cstor_alloc[p] = availc[p] * (1.0 - parms['fpg'][p])
               
               # growth respiration
-              gr[p,v+1] = availc[p] * fpg[p,v] * frg * (1.0 + f1+f2*(1+f3))/callom[p]
+              gr[p,v+1] = availc[p] * fpg[p,v] * frg * (1.0 + f1 + f2*(1+f3))/callom[p]
             #end of loop over pfts
 
             #Calculate resistance term and actual uptake f_om npool
@@ -666,16 +671,17 @@ class MyModel(object):
               plant_ndemand_vr = numpy.zeros([self.nsoil_layers])
               fpi = 0.0
               for nl in range(0,self.nsoil_layers):
-                #Method 1:Vertical distribution of plant N demand scales with root fractions
-                #plant_ndemand_vr[nl] = plant_ndemand * root_frac[nl] # OLD
-                # if (sum(sminn_vr[:,v]) > 0):
-                #   #plant_ndemand_vr[nl] = sum(plant_ndemand * root_frac[:,nl] * pftwt)
-                #   plant_ndemand_vr[nl] = sum_plant_ndemand * root_frac[0,nl]
-                # else:
-                #   if (s == 0):
-                #     plant_ndemand_vr[nl] = sum_plant_ndemand
-                #frootc_t[p,:,v]
-
+                # if nfroot_orders == 3:
+                #   #Method 1:Vertical distribution of plant N demand scales with root fractions
+                #   #plant_ndemand_vr[nl] = plant_ndemand * root_frac[nl] # OLD
+                #   if (sum(sminn_vr[:,v]) > 0):
+                #     plant_ndemand_vr[nl] = sum(plant_ndemand * root_frac[:,nl] * pftwt)
+                #     #plant_ndemand_vr[nl] = sum_plant_ndemand * root_frac[0,nl]
+                #   else:
+                #     if (s == 0):
+                #       plant_ndemand_vr[nl] = sum_plant_ndemand
+                #   #frootc_t[p,:,v]
+                #if nfroot_orders == 1:
                 #Method 2: Vertical distribution of plant N demand scales with available mineral N
                 if (sum(sminn_vr[:,v]) > 0):
                   plant_ndemand_vr[nl] = sum_plant_ndemand * sminn_vr[nl,v] / sum(sminn_vr[:,v])
@@ -686,7 +692,9 @@ class MyModel(object):
                 # Compare with existing mineral N pool
                 if (plant_ndemand_vr[nl] + potential_immob_vr[nl] >= sminn_vr[nl,v] and \
                    (plant_ndemand_vr[nl] + potential_immob_vr[nl]) > 0):
+                  
                   fpi_vr[nl,v] = sminn_vr[nl,v] / (plant_ndemand_vr[nl] + potential_immob_vr[nl])               
+                  
                   if (sum_plant_ndemand > 0):
                     fpi = fpi + fpi_vr[nl,v]*plant_ndemand_vr[nl]/sum_plant_ndemand
                   else:
@@ -699,6 +707,50 @@ class MyModel(object):
                     fpi = 1.0
             #print v, fpi, plant_ndemand[0], nstor[0,v], retransn[p], plant_nalloc[p]
             #time.sleep(0.05)
+            
+            ###################################
+            # Mortality fluxes
+            # ... should be PFT-specific
+            # ... Distribute the fluxes across soil profile by by surf_prof 
+            # ... frootc_litter_vr be order-specific
+            if (s < spinup_cycles):
+              mort_factor = 10.0
+            else:
+              mort_factor = 1.0
+            leafc_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            # OLD
+            #frootc_litter_vr    = numpy.zeros([self.nsoil_layers],numpy.float)
+            # NEW
+            frootc_litter_vr     = numpy.zeros([npfts,nfroot_orders,self.nsoil_layers],numpy.float)
+            leafn_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            livestemc_litter_vr  = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            livecrootc_litter_vr = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            deadstemc_litter_vr  = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            deadcrootc_litter_vr = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            cstor_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            nstor_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
+            for nl in range(0,self.nsoil_layers):
+              for p in range(0,npfts):
+                leafc_litter_vr[p,nl]  = pftwt[p] * leafc_litter[p]  * surf_prof[nl]
+                # OLD
+                #frootc_litter_vr[nl] = frootc_litter_vr[nl] + pftwt[p] * frootc_litter[p] * surf_prof[nl]
+                # NEW: sum over root orders by layer, calculated from frootc_litter_ovr that is 
+                #frootc_litter_vr[:,nl] = frootc_litter_vr[:,nl] + pftwt[p] * frootc_litter[p,:] * surf_prof[nl]
+                frootc_litter_vr[p,:,nl] = pftwt[p] * frootc_litter_ovr[p,:,nl]
+
+                leafn_litter_vr[p,nl]  = pftwt[p] * leafn_litter[p]  * surf_prof[nl]
+                livestemc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * livestemc[p,v] * surf_prof[nl]
+                livecrootc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * livecrootc[p,v] * root_frac[p,nl]
+                deadstemc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
+                        * mort_factor / 365.0 * deadstemc[p,v] * surf_prof[nl]
+                deadcrootc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
+                        * mort_factor / 365.0 * deadcrootc[p,v] * root_frac[p,nl]
+                cstor_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * cstor[p,v] * surf_prof[nl]
+                nstor_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
+                        / 365.0 * nstor[p,v] * surf_prof[nl]
             
             #########################################
             # Finally, update various pools accounting for new Prod, N limitation, and mortality
@@ -740,7 +792,7 @@ class MyModel(object):
               if (calc_nlimitation):
                 nstor[p,v+1] = nstor[p,v] - parms['r_mort'][0] / 365.0 * nstor[p,v] + \
                         retransn[p] - plant_nalloc[p] + fpi*plant_ndemand[p]  
-
+              
               #Calculate NPP
               npp[p,v+1] = gpp[p,v+1] - mr[p,v+1] - gr[p,v+1] - cstor_turnover[p]
               if (doy[v] == 1):
@@ -750,54 +802,18 @@ class MyModel(object):
                 annsum_retransn_temp[p] = 0
                 annsum_gpp[p] = annsum_gpp_temp[p]
                 annsum_gpp_temp[p] = 0
-                 
+
               annsum_npp_temp[p]      = annsum_npp_temp[p]      + npp[p,v]
               annsum_retransn_temp[p] = annsum_retransn_temp[p] + retransn[p]
               annsum_gpp_temp[p]      = annsum_gpp_temp[p]      + gpp[p,v]
             # end of loop over npfts
 
-
-            ###################################
-            # Mortality fluxes for CTC
-            # ... Should be PFT-, Layer-specific, and Order-specific (frootc_litter_vr)
-            # ... 
-            if (s < spinup_cycles):
-              mort_factor = 10.0
-            else:
-              mort_factor = 1.0
-            leafc_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            #frootc_litter_vr    = numpy.zeros([self.nsoil_layers],numpy.float)
-            frootc_litter_vr     = numpy.zeros([npfts,nfroot_orders,self.nsoil_layers],numpy.float)
-            leafn_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            livestemc_litter_vr  = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            livecrootc_litter_vr = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            deadstemc_litter_vr  = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            deadcrootc_litter_vr = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            cstor_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            nstor_litter_vr      = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
-            for nl in range(0,self.nsoil_layers):
-              for p in range(0,npfts):
-                leafc_litter_vr[p,nl]  = pftwt[p] * leafc_litter[p]  * surf_prof[nl]
-                # OLD
-                #frootc_litter_vr[nl] = frootc_litter_vr[nl] + pftwt[p] * frootc_litter[p] * surf_prof[nl]
-                # NEW: sum over root orders by layer, calculated from frootc_litter_ovr that is 
-                #frootc_litter_vr[:,nl] = frootc_litter_vr[:,nl] + pftwt[p] * frootc_litter[p,:] * surf_prof[nl]
-                frootc_litter_vr[p,:,nl] = pftwt[p] * frootc_litter_ovr[p,:,nl]
-
-                leafn_litter_vr[p,nl]  = pftwt[p] * leafn_litter[p]  * surf_prof[nl]
-                livestemc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
-                        / 365.0 * livestemc[p,v] * surf_prof[nl]
-                livecrootc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
-                        / 365.0 * livecrootc[p,v] * root_frac[p,nl]
-                deadstemc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
-                        * mort_factor / 365.0 * deadstemc[p,v] * surf_prof[nl]
-                deadcrootc_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
-                        * mort_factor / 365.0 * deadcrootc[p,v] * root_frac[p,nl]
-                cstor_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
-                        / 365.0 * cstor[p,v] * surf_prof[nl]
-                nstor_litter_vr[p,nl] = pftwt[p] * parms['r_mort'][0] \
-                        / 365.0 * nstor[p,v] * surf_prof[nl]
-            
+            # if v == 365*6:
+            #     print("annsum_npp",annsum_npp)
+            #     print("annsum_npp_temp",annsum_npp_temp)
+            #     print("gr=",gr[:,v])
+            #     print(doy[v])
+            #     sys.exit()
 
             # ----------------- Litter and SOM decomposition model (CTC) --------------------
             # BWANG: Changes arising from CTAM structure
@@ -821,8 +837,8 @@ class MyModel(object):
                                 sum(sum(frootc_litter_vr[:,:,nl]*fr_flig[:,:] / frootcn[:,:]))
               ctc_input[10,nl]= sum(leafn_litter_vr[:,nl]*(1.0 - parms['lf_flig'] - parms['lf_flab'])) +  \
                                 sum(sum(frootc_litter_vr[:,:,nl] * (1.0-fr_flab[:,:]-fr_flig[:,:]) / frootcn[:,:]))
-              ctc_input[15,nl] =sum((livestemc_litter_vr[:,nl] + livecrootc_litter_vr[:,nl]) / max(parms['livewdcn'],[10.]*npfts)) + \
-                                sum((deadcrootc_litter_vr[:,nl] + deadstemc_litter_vr[:,nl]) / max(parms['deadwdcn'],[10.]*npfts))
+              ctc_input[15,nl] =sum((livestemc_litter_vr[:,nl] + livecrootc_litter_vr[:,nl]) / numpy.maximum(parms['livewdcn'],[10.]*npfts)) + \
+                                sum((deadcrootc_litter_vr[:,nl] + deadstemc_litter_vr[:,nl]) / numpy.maximum(parms['deadwdcn'],[10.]*npfts))
             
             #########################
             ctc_to_sminn = numpy.zeros([self.nsoil_layers], numpy.float)
@@ -836,13 +852,13 @@ class MyModel(object):
                 if (p1 < 3):
                    if (calc_nlimitation):
                      ctc_output[p1,nl]   = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*fpi_vr[nl,v] 
-                     ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*fpi_vr[nl,v] / ctc_cn[p1,nl]
+                     ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*fpi_vr[nl,v]/ctc_cn[p1,nl]
                    else:
                      ctc_output[p1,nl]   = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*parms['fpi']
-                     ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*parms['fpi'] / ctc_cn[p1,nl]
+                     ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*parms['fpi']/ctc_cn[p1,nl]
                 else:
                    ctc_output[p1,nl]   = k_ctc[p1]*ctcpools_vr[p1,nl,v]*spinup_factors[p1]*depth_scalar[nl]*trate  #Decomposition (output)
-                   ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*spinup_factors[p1]*depth_scalar[nl]*trate / ctc_cn[p1,nl]
+                   ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*spinup_factors[p1]*depth_scalar[nl]*trate/ctc_cn[p1,nl]
 
                 #Calculate HR and N mineralization from HR
                 ctc_resp[p1,nl]   = ctc_output[p1,nl]*rf_ctc[p1]       
@@ -912,14 +928,14 @@ class MyModel(object):
             ndep[v] = 0.115 / (365)
             nfix[v] = 0 # nitrogen fixation
             for p in range(0,self.npfts):
-              nfix[v] = nfix[v] + pftwt[p] * (1.8 * (1.0 - math.exp(-0.003 * annsum_npp[p]))) / (365)            
+              nfix[v] = nfix[v] + pftwt[p] * (1.8 * (1.0 - numpy.exp(-0.003 * annsum_npp[p]))) / (365)            
             bdnr =0.05
             if (calc_nlimitation):
               for nl in range(0,self.nsoil_layers):
                 # nfix_nl: total nfix of all PFTs by layer added
                 nfix_nl = 0
                 for p in range(0,self.npfts):
-                  nfix_nl = nfix_nl + root_frac[p,nl] * pftwt[p] * (1.8 * (1.0 - math.exp(-0.003 * annsum_npp[p]))) / (365)
+                  nfix_nl = nfix_nl + root_frac[p,nl] * pftwt[p] * (1.8 * (1.0 - numpy.exp(-0.003 * annsum_npp[p]))) / (365)
                 sminn_vr[nl,v+1] = max(sminn_vr[nl,v]*(1-bdnr) + nfix_nl + ndep[v]*surf_prof[nl] - \
                                      fpi_vr[nl,v]*plant_ndemand_vr[nl] + ctc_to_sminn[nl], 0.0)
                 #Old
