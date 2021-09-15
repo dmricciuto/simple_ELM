@@ -323,16 +323,19 @@ class MyModel(object):
                 if (dayl_last >= parms['crit_dayl'][0]/3600. and dayl[v] < parms['crit_dayl'][0]/3600.):
                    leafoff[p] = parms['ndays_off'][0]
                    leafc_litter_tot[p]  = leafc[p,v]
-                   frootc_litter_tot[p] = frootc[p,v]
+                   #frootc_litter_tot[p] = frootc[p,v]
                 if (leafoff[p] > 0):
                    leafc_litter[p]  = min(leafc_litter_tot[p]  / parms['ndays_off'][0], leafc[p,v])
-                   frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
+                   #frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
                    leafoff[p] = leafoff[p] - 1
                 else:
                    leafc_litter[p]  = 0.0
-                   frootc_litter[p] = 0.0
+                   #frootc_litter[p] = 0.0
                 leafn_litter[p] = leafc_litter[p] /parms['lflitcn'][p]
                 retransn[p] = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
+                # fine roots
+                frootc_litter[p] = parms['r_mort'][0] * frootc[p,v]/365.0 + frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)
+                
               else:               #Evergreen phenology / leaf mortality`
                 retransn[p] = leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) * \
                                     (1.0 / parms['leafcn'][p] - 1.0 / parms['lflitcn'][p])
@@ -408,7 +411,7 @@ class MyModel(object):
                           < parms['froot_phen_peak'][p]+parms['froot_phen_width'][p]/2.0):
                     f1 = f1*1.0/(parms['froot_phen_width'][p])
                   else:
-                    f1 = 0.0
+                    f1 = f1
 
               if (parms['stem_leaf'][p] < 0):
                 f2   = max(-1.0*parms['stem_leaf'][p]/(1.0+numpy.exp(-0.004*(annsum_npp[p] - \
@@ -422,10 +425,12 @@ class MyModel(object):
                     f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
                     f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
               if (parms['season_decid'][p] == 1):
-                leafc_alloc[p,v]      = 0.
-                frootc_alloc[p,v]     = 0.
-                leafcstor_alloc[p]  = availc[p] * 1.0/callom[p]
-                frootcstor_alloc[p] = availc[p] * f1/callom[p]
+                leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]*0.7
+                leafcstor_alloc[p]  = availc[p] * 1.0/callom[p]*(1-0.7)
+                #frootcstor_alloc[p] = availc[p] * f1/callom[p]
+                # to allocation directly
+                frootc_alloc[p,v]   = availc[p] * f1/callom[p]*0.7
+                frootcstor_alloc[p] = availc[p] * f1/callom[p]*(1-0.7)
               else:
                 leafcstor_alloc[p]  = 0.
                 frootcstor_alloc[p] = 0.
