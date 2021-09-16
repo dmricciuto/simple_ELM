@@ -16,7 +16,7 @@ fig, ax = plt.subplots(2,2)
 #create model object
 model = models.MyModel(site=site)
 #Load model forcings
-model.load_forcings(site=site)
+model.load_forcings(site=site,nfroot_orders=1)
 # generate ensembles
 #model.generate_ensemble(n_ensemble=int(2),pnames=['frootcn','leafcn'],ppfts=[2,2])
 print('running the default model')
@@ -48,7 +48,7 @@ ax[1,1].set_ylabel('GPP')
 #create model object
 model2 = models.MyModel(site=site)
 #Load model forcings
-model2.load_forcings(site=site)
+model2.load_forcings(site=site,nfroot_orders=3)
 print('running model with fine root phenology')
 model2.parms['froot_phen_width'][:]=0.6
 model2.parms['froot_phen_peak'][:]=0.5
