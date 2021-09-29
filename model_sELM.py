@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from math import sin, cos, sqrt, atan2, radians
 import math, time, os
 import utils
-#import sys
+import sys
 #import load_forcings
 
 class MyModel(object):
@@ -15,7 +15,7 @@ class MyModel(object):
     def __init__(self,site=''):
         self.name = 'sELM'
         elmsurfdat = Dataset('./surfdata/surfdata_'+site+'.nc','r')
-        elmparms = Dataset('./parameters/selm_default_parms.nc','r')
+        elmparms   = Dataset('./parameters/selm_default_parms.nc','r')
         self.site=site
         self.nsoil_layers=10
         self.pdefault={}
@@ -56,7 +56,8 @@ class MyModel(object):
         self.parms['soil4ci'] = [1000.]
         self.parms['froot_phen_peak']=numpy.zeros([self.npfts])+0.5
         self.parms['froot_phen_width']=numpy.zeros([self.npfts])+0.3
-
+        
+        
         #set parameter ranges for UQ activities
         for p in self.parms:
             self.pdefault[p] = self.parms[p]
@@ -276,7 +277,7 @@ class MyModel(object):
         doy  = self.forcings['doy']
         cair = self.forcings['cair']
         dayl = self.forcings['dayl']
-        btran = self.forcings['btran']
+        btran= self.forcings['btran']
         #Coefficents for ACM (GPP submodel)
         a=numpy.zeros([npfts,10], numpy.float)
         for p in range(0,npfts):
@@ -302,8 +303,10 @@ class MyModel(object):
 
         #Initialize local variables
         gdd     = numpy.zeros([npfts], numpy.float)+0.0
+        #gdd_froot=numpy.zeros([npfts], numpy.float)+0.0
         leafon  = numpy.zeros([npfts], numpy.float)+0.0
         leafoff = numpy.zeros([npfts], numpy.float)+0.0
+        frooton = numpy.zeros([npfts], numpy.float)+0.0
         leafc_trans  = numpy.zeros([npfts], numpy.float)+0.0
         frootc_trans = numpy.zeros([npfts], numpy.float)+0.0
         leafc_trans_tot  = numpy.zeros([npfts], numpy.float)+0.0
@@ -409,54 +412,40 @@ class MyModel(object):
               #...fine root production from translocation from storage remains synchronous
               #...But, fine root shedding decoupled from leaf unfolding and became the same as evergreen
               if (parms['season_decid'][p] == 1):
-                #leaf on
                 gdd_last = gdd[p]
                 gdd_base = 0.0
                 gdd[p] = (doy[v] > 1) * (gdd[p] + max(0.5*(tmax[v]+tmin[v])-gdd_base, 0.0))
+                #leaf on
                 if (gdd[p] >= parms['gdd_crit'][p] and gdd_last < parms['gdd_crit'][p]):
                   leafon[p] = parms['ndays_on'][0]
                   leafc_trans_tot[p]  = leafc_stor[p,v] *parms['fstor2tran'][0]
-                  frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
+                  #frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
                 if (leafon[p] > 0):
                   leafc_trans[p]  = leafc_trans_tot[p]  / parms['ndays_on'][0]
-                  frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
+                  #frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
                   leafon[p] = leafon[p] - 1
                 else:
                   leafc_trans[p]  = 0.0
+                  #frootc_trans[p] = 0.0
+                #fine root on
+                if (gdd[p] >= parms['gdd_crit'][p]+0 and gdd_last < parms['gdd_crit'][p]+0):
+                  frooton[p] = parms['ndays_on'][0]
+                  frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
+                if (frooton[p] > 0):
+                  frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
+                  frooton[p] = frooton[p] - 1
+                else:
                   frootc_trans[p] = 0.0
                 #leaf off
                 dayl_last = dayl[v-1]
                 if (dayl_last >= parms['crit_dayl'][0]/3600. and dayl[v] < parms['crit_dayl'][0]/3600.):
                    leafoff[p] = parms['ndays_off'][0]
                    leafc_litter_tot[p]  = leafc[p,v]
-                   # OLD
-                   #frootc_litter_tot[p] = frootc[p,v]
-                   # NEW
-                   #frootc_litter_tot[p,:] = frootc_t[p,:,v] * froot_lit_partition
                 if (leafoff[p] > 0):
                    leafc_litter[p]  = min(leafc_litter_tot[p]  / parms['ndays_off'][0], leafc[p,v])
-                   # OLD
-                   #frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
-                   # NEW
-                   #frootc_litter[p,:]=numpy.minimum(frootc_litter_tot[p,:]/parms['ndays_off'][0], frootc_t[p,:,v])
-                   
-                  #  if nfroot_orders == 1:
-                  #    frootc_litter_ovr[p,:,:] = numpy.minimum(frootc_litter_tot[p,:]/parms['ndays_off'][0], frootc_t[p,:,v])*surf_prof
-                  #  elif nfroot_orders==3:
-                  #    #T root
-                  #    frootc_litter_ovr[p,2,:] = numpy.minimum(frootc_litter_tot[p,2]/parms['ndays_off'][0], frootc_t[p,2,v])*surf_prof
-                  #    #A root
-                  #    frootc_litter_ovr[p,1,:] = numpy.minimum(frootc_litter_tot[p,1]/parms['ndays_off'][0], frootc_t[p,1,v])*surf_prof
-                  #    #M root
-                  #    frootc_litter_ovr[p,0,:] = numpy.minimum(frootc_litter_tot[p,0]/parms['ndays_off'][0], frootc_t[p,0,v])*surf_prof
-
                    leafoff[p] = leafoff[p] - 1
                 else:
                    leafc_litter[p]  = 0.0
-                   # OLD
-                   #frootc_litter[p] = 0.0
-                   # NEW
-                   #frootc_litter_ovr[p,:,:] = 0.0
                 leafn_litter[p] = leafc_litter[p] / parms['lflitcn'][p]
                 retransn[p]     = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
                 # fine root litter decoupled from leaf shedding
@@ -464,8 +453,7 @@ class MyModel(object):
                 if nfroot_orders == 1:
                   frootc_litter_ovr[p,:,:]= (parms['r_mort'][0] * frootc_o[p,:,v]/365.0 +\
                                              frootc_o[p,:,v] * 1.0 / (froot_long[p,:]*365.))*\
-                                             surf_prof
-
+                                             root_frac[p]
                 elif nfroot_orders == 3:
                   #Coupled Death
                   # ... when T root dies, A & M root must join; when A dies, M must join
@@ -473,18 +461,18 @@ class MyModel(object):
                   #T root
                   frootc_litter_ovr[p,2,:] = (long_scalar*parms['r_mort'][0] * frootc_o[p,2,v]/365.0 + \
                                              frootc_o[p,2,v] * 1.0 / (froot_long[p,2]*365.))*\
-                                             surf_prof
+                                             root_frac[p]
 
                   #A root
                   frootc_litter_ovr[p,1,:]=(long_scalar*parms['r_mort'][0] * frootc_o[p,1,v]/365.0 + \
                                            frootc_o[p,1,v] * 1.0 / (froot_long[p,1]*365.))*\
-                                           surf_prof +\
-                                           frootc_litter_ovr[p,2,:] * 1/numpy.exp(1/4)  
+                                           root_frac[p]
+                                           #frootc_litter_ovr[p,2,:] * 1/numpy.exp(1/4)  
                   #M root
                   frootc_litter_ovr[p,0,:]=(long_scalar*parms['r_mort'][0] * frootc_o[p,0,v]/365.0 + \
                                            frootc_o[p,0,v] * 1.0 / (froot_long[p,0]*365.))*\
-                                           surf_prof +\
-                                           frootc_litter_ovr[p,1,:] * 1/numpy.exp(1/4)
+                                           root_frac[p]
+                                           #frootc_litter_ovr[p,1,:] * 1/numpy.exp(1/4)
               #Evergreen phenology / leaf & fine-root mortality                            
               else:               
                 retransn[p] = leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) * \
@@ -506,7 +494,7 @@ class MyModel(object):
                   # pftwt[p] * frootc_litter[p,:] * root_frac[p,nl]
                   frootc_litter_ovr[p,:,:]= (parms['r_mort'][0] * frootc_o[p,:,v]/365.0 +\
                                              frootc_o[p,:,v] * 1.0 / (froot_long[p,:]*365.))*\
-                                             surf_prof
+                                             root_frac[p]
 
                 elif nfroot_orders == 3:
                   #Coupled Death
@@ -517,7 +505,7 @@ class MyModel(object):
                   #                     frootc_t[p,2,v] * 1.0 / (froot_long[p,2]*365.)
                   frootc_litter_ovr[p,2,:] = (long_scalar*parms['r_mort'][0] * frootc_o[p,2,v]/365.0 + \
                                              frootc_o[p,2,v] * 1.0 / (froot_long[p,2]*365.))*\
-                                             surf_prof
+                                             root_frac[p]
 
                   #A root
                   # frootc_litter[p,1] = parms['r_mort'][0] * frootc_t[p,1,v]/365.0 + \
@@ -525,16 +513,16 @@ class MyModel(object):
                   #                     frootc_litter[p,2] * 1/numpy.exp(3/4)
                   frootc_litter_ovr[p,1,:]=(long_scalar*parms['r_mort'][0] * frootc_o[p,1,v]/365.0 + \
                                           frootc_o[p,1,v] * 1.0 / (froot_long[p,1]*365.))*\
-                                          surf_prof +\
-                                          frootc_litter_ovr[p,2,:] * 1/numpy.exp(1/4)  
+                                          root_frac[p] #+\
+                                          #frootc_litter_ovr[p,2,:] * 1/numpy.exp(1/4)  
                   #M root
                   # frootc_litter[p,0] = parms['r_mort'][0] * frootc_t[p,0,v]/365.0 + \
                   #                      frootc_t[p,0,v] * 1.0 / (froot_long[p,0]*365.) + \
                   #                      frootc_litter[p,1] * 1/numpy.exp(3/4)
                   frootc_litter_ovr[p,0,:]=(long_scalar*parms['r_mort'][0] * frootc_o[p,0,v]/365.0 + \
                                            frootc_o[p,0,v] * 1.0 / (froot_long[p,0]*365.))*\
-                                           surf_prof +\
-                                           frootc_litter_ovr[p,1,:] * 1/numpy.exp(1/4) 
+                                           root_frac[p] #+\
+                                           #frootc_litter_ovr[p,1,:] * 1/numpy.exp(1/4) 
 
               #Calculate live wood turnover
               livestemc_turnover[p]  = parms['lwtop_ann'][0] / 365. * livestemc[p,v]
@@ -577,8 +565,8 @@ class MyModel(object):
                    met_thistimestep=[btran[v], lai[p,v], lai[p,v]/4.0, tmax[v]+273.15, tmin[v]+273.15, t10, \
                                    rad[v]*1e6, 50.0, cair[v]/10.0, dayl_factor, flnr, slatop, parms['leafcn'][p], parms['mbbopt'][p]]
                    for i in range(0,self.nparms_nn):   #normalize
-                     met_thistimestep_norm[0,i] = ( met_thistimestep[i] - self.pmin_nn[i] ) / \
-                         (self.pmax_nn[i] - self.pmin_nn[i])
+                     met_thistimestep_norm[0,i] = ( met_thistimestep[i] - self.pmin_nn[i] ) / (self.pmax_nn[i] - self.pmin_nn[i])
+                   %print(met_thistimestep_norm[0,:]) 
                    gpp[p,v+1] = max(self.nnmodel.predict(met_thistimestep_norm), 0.0)
               else:
                   gpp[p,v+1] = 0.0
@@ -649,7 +637,7 @@ class MyModel(object):
                 leafcstor_alloc[p]  = 0.
                 frootcstor_alloc[p] = 0.
                 leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]
-                frootc_alloc[p,v]   = availc[p] * f1/callom[p]
+                frootc_alloc[p,v]   = availc[p] * f1 /callom[p]
               
               livestemc_alloc[p,v] = availc[p] * flw*f2/callom[p]
               deadstemc_alloc[p,v] = availc[p] * (1.0-flw) * f2/callom[p]
@@ -672,7 +660,7 @@ class MyModel(object):
               
               # growth respiration
               gr[p,v+1] = availc[p] * fpg[p,v] * frg * (1.0 + f1 + f2*(1+f3))/callom[p]
-            #end of loop over pfts
+            #end of 1st loop over pfts
 
             #Calculate resistance term and actual uptake f_om npool
             ctc_cn = numpy.zeros([8,self.nsoil_layers], numpy.float)+10.0   #default SOM pools to 10
@@ -857,16 +845,16 @@ class MyModel(object):
             for nl in range(0,self.nsoil_layers):
               #Carbon
               ctc_input[0,nl] = sum(leafc_litter_vr[:,nl]*parms['lf_flab']) + sum(sum(frootc_litter_vr[:,:,nl] * fr_flab[:,:]))
-              ctc_input[1,nl] = sum(leafc_litter_vr[:,nl]*parms['lf_flig']) + sum(sum(frootc_litter_vr[:,:,nl] * fr_flig[:,:]))
-              ctc_input[2,nl] = sum(leafc_litter_vr[:,nl]*(1.0 - parms['lf_flab'] - parms['lf_flig'])) + \
+              ctc_input[2,nl] = sum(leafc_litter_vr[:,nl]*parms['lf_flig']) + sum(sum(frootc_litter_vr[:,:,nl] * fr_flig[:,:]))
+              ctc_input[1,nl] = sum(leafc_litter_vr[:,nl]*(1.0 - parms['lf_flab'] - parms['lf_flig'])) + \
                                 sum(sum(frootc_litter_vr[:,:,nl]*(1.0-fr_flab[:,:]-fr_flig[:,:])))
               ctc_input[7,nl] = sum(livestemc_litter_vr[:,nl] + livecrootc_litter_vr[:,nl] + deadcrootc_litter_vr[:,nl] + deadstemc_litter_vr[:,nl])
               #Nitrogen
               ctc_input[8,nl] = sum(leafn_litter_vr[:,nl]*parms['lf_flab']) + \
                                 sum(sum(frootc_litter_vr[:,:,nl]*fr_flab[:,:] / frootcn[:,:]))
-              ctc_input[9,nl] = sum(leafn_litter_vr[:,nl]*parms['lf_flig']) + \
+              ctc_input[10,nl] = sum(leafn_litter_vr[:,nl]*parms['lf_flig']) + \
                                 sum(sum(frootc_litter_vr[:,:,nl]*fr_flig[:,:] / frootcn[:,:]))
-              ctc_input[10,nl]= sum(leafn_litter_vr[:,nl]*(1.0 - parms['lf_flig'] - parms['lf_flab'])) +  \
+              ctc_input[9,nl]= sum(leafn_litter_vr[:,nl]*(1.0 - parms['lf_flig'] - parms['lf_flab'])) +  \
                                 sum(sum(frootc_litter_vr[:,:,nl] * (1.0-fr_flab[:,:]-fr_flig[:,:]) / frootcn[:,:]))
               ctc_input[15,nl] =sum((livestemc_litter_vr[:,nl] + livecrootc_litter_vr[:,nl]) / numpy.maximum(parms['livewdcn'],[10.]*npfts)) + \
                                 sum((deadcrootc_litter_vr[:,nl] + deadstemc_litter_vr[:,nl]) / numpy.maximum(parms['deadwdcn'],[10.]*npfts))
@@ -906,7 +894,7 @@ class MyModel(object):
                     else:
                       #Fragmentation from CWD into litter - no immobilization/mineralization
                       ctc_input[p2+8,nl] = ctc_input[p2+8,nl] + ctc_output[p1,nl]*tr_ctc[p1,p2] / ctc_cn[p1,nl]
-            hr[v+1]=0
+            
 
             #Calculate inputs and outputs from advection
             advection_rate = 0.000  #m/yr
@@ -919,7 +907,8 @@ class MyModel(object):
                   if (nl > 0):
                     ctc_input[p,nl] = ctc_input[p,nl] + ctcpools_vr[p,nl-1,v] * spinup_factors[p % 8] * \
                                        advection_rate / 365.0 / soil_depth[nl-1]
-
+            
+            hr[v+1]=0
             #Increment ctcpools
             for p in range(0,16):        #Handle both C and N
               for nl in range(0,self.nsoil_layers):
@@ -934,15 +923,9 @@ class MyModel(object):
             for p in range(0,npfts):
               #########
               # Changes arising from frootc being order-specific
-              ########
-              # OLD
-              #totecosysc[v+1] = totecosysc_tmp + pftwt[p] * (leafc[p,v+1]+leafc_stor[p,v+1]+frootc[p,v+1]+ \
-              #                  frootc_stor[p,v+1]+livestemc[p,v+1]+deadstemc[p,v+1]+livecrootc[p,v+1]+ \
-              #                  cstor[p,v+1]+deadcrootc[p,v+1])
-              # NEW
               totecosysc[v+1] = totecosysc_tmp + pftwt[p] * (leafc[p,v+1]+leafc_stor[p,v+1]+sum(frootc_o[p,:,v+1])+ \
-                                frootc_stor[p,v+1]+livestemc[p,v+1]+deadstemc[p,v+1]+livecrootc[p,v+1]+ \
-                                cstor[p,v+1]+deadcrootc[p,v+1])
+                                frootc_stor[p,v+1]+livestemc[p,v+1]+deadstemc[p,v+1]+livecrootc[p,v+1]+deadcrootc[p,v+1]+\
+                                cstor[p,v+1])
             
             for nl in range(0,self.nsoil_layers):
               totecosysc[v+1] = totecosysc[v+1] + sum(ctcpools_vr[:,nl,v+1])
@@ -953,8 +936,9 @@ class MyModel(object):
             totlitn[v+1] = sum(ctcpools_vr[8,:,v+1])+sum(ctcpools_vr[9,:,v+1])+ \
                            sum(ctcpools_vr[10,:,v+1])+sum(ctcpools_vr[11,:,v+1])
             cwdc[v+1]    = sum(ctcpools_vr[7,:,v+1])
-            nee[v+1] = totecosysc[v+1]-totecosysc[v]
- 
+            nee[v+1]     = totecosysc[v+1]-totecosysc[v]
+
+
             #Update soil mineral nitrogen
             ndep[v] = 0.115 / (365)
             nfix[v] = 0 # nitrogen fixation
@@ -967,8 +951,10 @@ class MyModel(object):
                 nfix_nl = 0
                 for p in range(0,self.npfts):
                   nfix_nl = nfix_nl + root_frac[p,nl] * pftwt[p] * (1.8 * (1.0 - numpy.exp(-0.003 * annsum_npp[p]))) / (365)
-                sminn_vr[nl,v+1] = max(sminn_vr[nl,v]*(1-bdnr) + nfix_nl + ndep[v]*surf_prof[nl] - \
-                                     fpi_vr[nl,v]*plant_ndemand_vr[nl] + ctc_to_sminn[nl], 0.0)
+                sminn_vr[nl,v+1] = max(
+                  sminn_vr[nl,v]*(1-bdnr) + nfix_nl + ndep[v]*surf_prof[nl] - fpi_vr[nl,v]*plant_ndemand_vr[nl] + ctc_to_sminn[nl],
+                  0.0
+                )
                 #Old
                 #sminn_vr[nl,v+1] = max(sminn_vr[nl,v]*(1-bdnr) + nfix[v]*root_frac[0,nl] + ndep[v]*surf_prof[nl] - \
                 #                     fpi_vr[nl,v]*plant_ndemand_vr[nl] + ctc_to_sminn[nl], 0.0)
@@ -1473,114 +1459,144 @@ class MyModel(object):
           fnum = fnum+1
         print ('Loading complete')
 
-    def load_forcings(self, site='none', nfroot_orders=3,lat=-999, lon=-999):
-         #Get single point data from E3SM style cpl_bypass input files
-         self.forcvars = ['tmax','tmin','rad','cair','doy','dayl','btran','time']
-         self.forcings = {}
-         self.site=site
-         if (self.site != 'none'):
-             #Get data for requested site
-             myinput = Dataset('./forcing_data/'+self.site+'_forcing.nc4','r',format='NETCDF4')
-             npts = myinput.variables['TBOT'].size              #number of half hours or hours
-             tair = myinput.variables['TBOT'][0,:]              #Air temperature (K)
-             fsds  = myinput.variables['FSDS'][0,:]             #Solar radiation (W/m2)
-             btran = fsds * 0.0 + 1.0
-             self.latdeg = myinput.variables['LATIXY'][0]            #site latitude
-             self.londeg = myinput.variables['LONGXY'][0]            #site longitude
-             self.start_year = int(myinput.variables['start_year'][:])    #starting year of data
-             self.end_year   = int(myinput.variables['end_year'][:])   #ending year of data
-             self.npd = int(npts/(self.end_year - self.start_year + 1)/365)   #number of obs per day
-             self.nobs = int((self.end_year - self.start_year + 1)*365)  #number of days
-             for fv in self.forcvars:
-               self.forcings[fv] = []
-             self.lat = self.latdeg*numpy.pi/180.
-             #populate hourly forcings (for NN)
-             #self.forcings['tair_hourly'] = myinput.variables['TBOT'][0,:].copy()-273.15
-             #self.forcings['fsds_hourly'] = myinput.variables['FSDS'][0,:].copy()
-             #self.forcings['rh_hourly']   = myinput.variables['RH'][0,:].copy()
-             #self.forcings['psrf_hourly'] = myinput.variables['PSRF'][0,:].copy()
-             #self.forcings['wind_hourly'] = myinput.variables['WIND'][0,:].copy()
-             myinput.close()
-             #populate daily forcings
-             for d in range(0,self.nobs):
-               self.forcings['tmax'].append(max(tair[d*self.npd:(d+1)*self.npd])-273.15)
-               self.forcings['tmin'].append(min(tair[d*self.npd:(d+1)*self.npd])-273.15)
-               self.forcings['rad'].append(sum(fsds[d*self.npd:(d+1)*self.npd]*(86400/self.npd)/1e6))
-               self.forcings['btran'].append(1.0)
-               self.forcings['cair'].append(360)
-               self.forcings['doy'].append((float(d % 365)+1))
-               self.forcings['time'].append(self.start_year+d/365.0)
-               #Calculate day length
-               dec  = -23.4*numpy.cos((360.*(self.forcings['doy'][d]+10.)/365.)*numpy.pi/180.)*numpy.pi/180.
-               mult = numpy.tan(self.lat)*numpy.tan(dec)
-               if (mult >= 1.):
-                 self.forcings['dayl'].append(24.0)
-               elif (mult <= -1.):
-                  self.forcings['dayl'].append(0.)
-               else:
-                 self.forcings['dayl'].append(24.*numpy.arccos(-mult)/numpy.pi)
+    def load_forcings(self, site='none', nfroot_orders=3, lat=-999, lon=-999):
+      #Get single point data from E3SM style cpl_bypass input files
+      #self.site=site
+      self.forcvars = ['tmax','tmin','rad','cair','doy','dayl','btran','time']
+      self.forcings = {}
+      for fv in self.forcvars:
+          self.forcings[fv] = []
+      if (site != 'none' and site != 'US-MoT'):
+        #Get data for requested site
+        myinput = Dataset('./forcing_data/'+self.site+'_forcing.nc4','r',format='NETCDF4')
+        npts  = myinput.variables['TBOT'].size              #number of half hours or hours
+        tair  = myinput.variables['TBOT'][0,:]              #Air temperature (K)
+        fsds  = myinput.variables['FSDS'][0,:]              #Solar radiation (W/m2)
+        btran = fsds * 0.0 + 1.0
+        self.latdeg = myinput.variables['LATIXY'][0]            #site latitude
+        self.londeg = myinput.variables['LONGXY'][0]            #site longitude
+        self.start_year = int(myinput.variables['start_year'][:]) #starting year of data
+        self.end_year   = int(myinput.variables['end_year'][:])   #ending year of data
+        self.npd = int(npts/(self.end_year - self.start_year + 1)/365)   #number of obs per day
+        self.nobs = int((self.end_year - self.start_year + 1)*365)  #number of days
+        self.lat = self.latdeg*numpy.pi/180.
+        #populate hourly forcings (for NN)
+        #self.forcings['tair_hourly'] = myinput.variables['TBOT'][0,:].copy()-273.15
+        #self.forcings['fsds_hourly'] = myinput.variables['FSDS'][0,:].copy()
+        #self.forcings['rh_hourly']   = myinput.variables['RH'][0,:].copy()
+        #self.forcings['psrf_hourly'] = myinput.variables['PSRF'][0,:].copy()
+        #self.forcings['wind_hourly'] = myinput.variables['WIND'][0,:].copy()
+        myinput.close()
+        #populate daily forcings
+        for d in range(0,self.nobs):
+          self.forcings['tmax'].append(max(tair[d*self.npd:(d+1)*self.npd])-273.15)
+          self.forcings['tmin'].append(min(tair[d*self.npd:(d+1)*self.npd])-273.15)
+          self.forcings['rad'].append(sum(fsds[d*self.npd:(d+1)*self.npd]*(86400/self.npd)/1e6))
+          self.forcings['btran'].append(1.0)
+          self.forcings['cair'].append(360)
+          self.forcings['doy'].append((float(d % 365)+1))
+          self.forcings['time'].append(self.start_year+d/365.0)
+          #Calculate day length
+          dec  = -23.4*numpy.cos((360.*(self.forcings['doy'][d]+10.)/365.)*numpy.pi/180.)*numpy.pi/180.
+          mult = numpy.tan(self.lat)*numpy.tan(dec)
+          if (mult >= 1.):
+            self.forcings['dayl'].append(24.0)
+          elif (mult <= -1.):
+            self.forcings['dayl'].append(0.)
+          else:
+            self.forcings['dayl'].append(24.*numpy.arccos(-mult)/numpy.pi)
+      elif (site == 'US-MoT'):
+        # data from daymet
+        myinput = Dataset('./forcing_data/'+self.site+'_forcing.nc4','r',format='NETCDF4')
+        tmax = myinput.variables['tmax'][0,:]  #tmax
+        tmin = myinput.variables['tmin'][0,:]  #tmin
+        fsds = myinput.variables['FSDS'][0,:]  #Solar radiation (W/m2)
+        btran = fsds * 0.0 + 1.0
+        self.latdeg = myinput.variables['LATIXY'][0]              #site latitude
+        self.londeg = myinput.variables['LONGXY'][0]              #site longitude
+        self.start_year = int(myinput.variables['start_year'][:]) #starting year of data
+        self.end_year   = int(myinput.variables['end_year'][:])   #ending year of data
+        self.nobs       = int((self.end_year - self.start_year + 1)*365)  #number of days
+        self.lat = self.latdeg*numpy.pi/180.
+        myinput.close()
+        #populate daily forcings
+        for d in range(0,self.nobs):
+          self.forcings['tmax'].append(tmax[d])
+          self.forcings['tmin'].append(tmin[d])
+          self.forcings['rad'].append(fsds[d]*86400/1e6)
+          self.forcings['btran'].append(1.0)
+          self.forcings['cair'].append(360)
+          self.forcings['doy'].append((float(d % 365)+1))
+          self.forcings['time'].append(self.start_year+d/365.0)
+          #Calculate day length
+          dec  = -23.4*numpy.cos((360.*(self.forcings['doy'][d]+10.)/365.)*numpy.pi/180.)*numpy.pi/180.
+          mult = numpy.tan(self.lat)*numpy.tan(dec)
+          if (mult >= 1.):
+            self.forcings['dayl'].append(24.0)
+          elif (mult <= -1.):
+            self.forcings['dayl'].append(0.)
+          else:
+            self.forcings['dayl'].append(24.*numpy.arccos(-mult)/numpy.pi)
+      elif (lat >= -90 and lon >= -180):
+        #Get closest gridcell from reanalysis data
+        self.latdeg=lat
+        if (lon > 180):
+            lon=lon-360.
+        if (lat > 9.5 and lat < 79.5 and lon > -170.5 and lon < -45.5):
+          xg = int(round((lon + 170.25)*2))
+          yg = int(round((lat - 9.75)*2))
+          tmax = self.regional_forc['tmax'][:,yg,xg]
+          tmin = self.regional_forc['tmin'][:,yg,xg]
+          btran = self.regional_forc['btran'][:,yg,xg]
+          fsds = self.regional_forc['fsds'][:,yg,xg]
+        else:
+          print('regions outside North America not currently supported')
+          sys.exit(1)
+        self.start_year = 1980
+        self.end_year   = 2009
+        self.npd = 1
+        self.nobs = (self.end_year - self.start_year + 1)*365
+        self.lat = self.latdeg*numpy.pi/180.
 
-         elif (lat >= -90 and lon >= -180):
-             #Get closest gridcell from reanalysis data
-             self.latdeg=lat
-             if (lon > 180):
-                 lon=lon-360.
-             if (lat > 9.5 and lat < 79.5 and lon > -170.5 and lon < -45.5):
-                xg = int(round((lon + 170.25)*2))
-                yg = int(round((lat - 9.75)*2))
-                tmax = self.regional_forc['tmax'][:,yg,xg]
-                tmin = self.regional_forc['tmin'][:,yg,xg]
-                btran = self.regional_forc['btran'][:,yg,xg]
-                fsds = self.regional_forc['fsds'][:,yg,xg]
-             else:
-                print('regions outside North America not currently supported')
-                sys.exit(1)
-             self.start_year = 1980
-             self.end_year   = 2009
-             self.npd = 1
-             self.nobs = (self.end_year - self.start_year + 1)*365
-             self.lat = self.latdeg*numpy.pi/180.
+        #populate daily forcings
+        self.forcings['tmax']  = tmax-273.15
+        self.forcings['tmin']  = tmin-273.15
+        self.forcings['btran'] = btran
+        self.forcings['rad']   = fsds*86400/1e6
+        self.forcings['cair']  = numpy.zeros([self.nobs], numpy.float) + 360.0
+        self.forcings['doy']   = (numpy.cumsum(numpy.ones([self.nobs], numpy.float)) - 1) % 365 + 1
+        self.forcings['time']  = self.start_year + (numpy.cumsum(numpy.ones([self.nobs], numpy.float)-1))/365.0
+        self.forcings['dayl']  = numpy.zeros([self.nobs], numpy.float)
+        for d in range(0,self.nobs):
+          #Calculate day length
+          dec  = -23.4*numpy.cos((360.*(self.forcings['doy'][d]+10.)/365.)*numpy.pi/180.)*numpy.pi/180.
+          mult = numpy.tan(self.lat)*numpy.tan(dec)
+          if (mult >= 1.):
+            self.forcings['dayl'][d] = 24.0
+          elif (mult <= -1.):
+            self.forcings['dayl'][d] = 0.
+          else:
+            self.forcings['dayl'][d] = 24.*numpy.arccos(-mult)/numpy.pi
 
-             #populate daily forcings
-             self.forcings['tmax']  = tmax-273.15
-             self.forcings['tmin']  = tmin-273.15
-             self.forcings['btran'] = btran
-             self.forcings['rad']   = fsds*86400/1e6
-             self.forcings['cair']  = numpy.zeros([self.nobs], numpy.float) + 360.0
-             self.forcings['doy']   = (numpy.cumsum(numpy.ones([self.nobs], numpy.float)) - 1) % 365 + 1
-             self.forcings['time']  = self.start_year + (numpy.cumsum(numpy.ones([self.nobs], numpy.float)-1))/365.0
-             self.forcings['dayl']  = numpy.zeros([self.nobs], numpy.float)
-             for d in range(0,self.nobs):
-               #Calculate day length
-               dec  = -23.4*numpy.cos((360.*(self.forcings['doy'][d]+10.)/365.)*numpy.pi/180.)*numpy.pi/180.
-               mult = numpy.tan(self.lat)*numpy.tan(dec)
-               if (mult >= 1.):
-                 self.forcings['dayl'][d] = 24.0
-               elif (mult <= -1.):
-                 self.forcings['dayl'][d] = 0.
-               else:
-                 self.forcings['dayl'][d] = 24.*numpy.arccos(-mult)/numpy.pi
-
-         #define the x axis for plotting output (time, or one of the inputs)
-         self.xlabel = 'Time (years)'
-         #Initialize output arrays
-         self.output = {}
-         for var in self.outvars:
-           if (var == 'ctcpools_vr'):
-             self.output[var] = numpy.zeros([16,self.nsoil_layers,self.nobs+1], numpy.float)
-           elif ('_pft' in var and '_vr' in var):
-             self.output[var] = numpy.zeros([self.npfts,nfroot_orders,self.nsoil_layers,self.nobs+1], numpy.float)
-           elif ('_vr' in var):
-             self.output[var] = numpy.zeros([self.nsoil_layers,self.nobs+1], numpy.float)
-           elif ('_pft' in var and var != 'frootctam_pft'):
-             self.output[var] = numpy.zeros([self.npfts,self.nobs+1], numpy.float)
-           elif (var == 'frootctam_pft'):
-             self.output[var] = numpy.zeros([self.npfts,nfroot_orders,self.nobs+1], numpy.float)
-           else:
-             self.output[var] = numpy.zeros([self.nobs+1], numpy.float)
+      #define the x axis for plotting output (time, or one of the inputs)
+      self.xlabel = 'Time (years)'
+      #Initialize output arrays
+      self.output = {}
+      for var in self.outvars:
+        if (var == 'ctcpools_vr'):
+          self.output[var] = numpy.zeros([16,self.nsoil_layers,self.nobs+1], numpy.float)
+        elif ('_pft' in var and '_vr' in var):
+          self.output[var] = numpy.zeros([self.npfts,nfroot_orders,self.nsoil_layers,self.nobs+1], numpy.float)
+        elif ('_vr' in var):
+          self.output[var] = numpy.zeros([self.nsoil_layers,self.nobs+1], numpy.float)
+        elif ('_pft' in var and var != 'frootctam_pft'):
+          self.output[var] = numpy.zeros([self.npfts,self.nobs+1], numpy.float)
+        elif (var == 'frootctam_pft'):
+          self.output[var] = numpy.zeros([self.npfts,nfroot_orders,self.nobs+1], numpy.float)
+        else:
+          self.output[var] = numpy.zeros([self.nobs+1], numpy.float)
 
     #Load actual observations and uncertainties
-
     def generate_ensemble(self, n_ensemble, pnames, ppfts, fname='', normalized=False):
       """
       Generate parameters' values for ensemble runs.
