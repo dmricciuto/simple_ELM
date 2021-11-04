@@ -237,27 +237,26 @@ class MyModel(object):
           soil_nodes = numpy.zeros([self.nsoil_layers], numpy.float)
           soil_dz    = numpy.zeros([self.nsoil_layers], numpy.float)
           soil_hi    = numpy.zeros([self.nsoil_layers], numpy.float)
-          soil_depth = numpy.zeros([self.npfts,self.nsoil_layers], numpy.float)
+          soil_depth = numpy.zeros([self.nsoil_layers], numpy.float)
           
           for i in range(0,self.nsoil_layers):
             soil_nodes[i] = 0.025*(numpy.exp(0.5*(i+0.5))-1)
            
           for i in range(0,self.nsoil_layers):
             if (i == 0):
-              soil_dz[i] = 0.5*(soil_nodes[0]+soil_nodes[1])
-              soil_hi[i] = 0.5*(soil_nodes[i]+soil_nodes[i+1])
+              soil_dz[i]    = 0.5*(soil_nodes[0]+soil_nodes[1])
+              soil_hi[i]    = 0.5*(soil_nodes[i]+soil_nodes[i+1])
               soil_depth[i] = soil_dz[i]/2.0
             elif (i < self.nsoil_layers-1):
-              soil_dz[i] = 0.5*(soil_nodes[i+1]-soil_nodes[i-1])
-              soil_hi[i] = 0.5*(soil_nodes[i]  +soil_nodes[i+1])
+              soil_dz[i]    = 0.5*(soil_nodes[i+1]-soil_nodes[i-1])
+              soil_hi[i]    = 0.5*(soil_nodes[i]  +soil_nodes[i+1])
               soil_depth[i] = soil_hi[i-1]+soil_dz[i]/2.0
             else: 
-              soil_dz[i] = 1.5058
-              soil_hi[i] = 3.8018   #layer 10 from CLM
+              soil_dz[i]    = 1.5058
+              soil_hi[i]    = 3.8018   #layer 10 from CLM
               soil_depth[i] = soil_hi[i-1]+soil_dz[i]/2.0
-            
-            surf_prof[i] = (numpy.exp(-10.0*soil_nodes[i])) / soil_dz[i]
-            depth_scalar[i] = math.exp(-soil_depth[i] / decomp_depth_efolding)
+            surf_prof[i]    = (numpy.exp(-10.0*soil_nodes[i])) / soil_dz[i]
+            depth_scalar[i] = numpy.exp(-soil_depth[i] / decomp_depth_efolding)
             # longevity correction for depth
             long_scalar[:,i]  = 1. + numpy.exp(-soil_depth[i] / parms['mort_depth_efolding'])
           
@@ -601,10 +600,10 @@ class MyModel(object):
                     f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
               
               # Actual allocation STARTs here
-              leafc_alloc[p,v]    = availc[p] * 1.0/callom[p] * parms['fcur']
-              frootc_alloc[p,v]   = availc[p] * f1/callom[p]  * parms['fcur']
-              leafcstor_alloc[p]  = availc[p] * 1.0/callom[p] * (1-parms['fcur'])
-              frootcstor_alloc[p] = availc[p] * f1/callom[p]  * (1-parms['fcur'])
+              leafc_alloc[p,v]    = availc[p] * 1.0/callom[p] * parms['fcur'][p]
+              frootc_alloc[p,v]   = availc[p] * f1/callom[p]  * parms['fcur'][p]
+              leafcstor_alloc[p]  = availc[p] * 1.0/callom[p] * (1-parms['fcur'][p])
+              frootcstor_alloc[p] = availc[p] * f1/callom[p]  * (1-parms['fcur'][p])
               # if (parms['season_decid'][p] == 1):
               #   leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]*0.5
               #   frootc_alloc[p,v]   = availc[p] * f1/callom[p] *0.5
@@ -706,7 +705,10 @@ class MyModel(object):
             # new profile: distribution profile & litter input profile
             froot_dist = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
             for p in range(0,npfts):
-              froot_dist[p,:] = root_frac[p] * sminn_vr[:,v]/sum(sminn_vr[:,v])
+              if (sum(sminn_vr[:,v]) > 0):
+                froot_dist[p,:] = root_frac[p] * sminn_vr[:,v]/sum(sminn_vr[:,v])
+              else:
+                froot_dist[p,:] = root_frac[p]
               froot_dist[p,:] = froot_dist[p,:]/sum(froot_dist[p,:])
               # litter input
               if nfroot_orders == 1:
@@ -1083,17 +1085,6 @@ class MyModel(object):
             if (v in self.forcvars):
               do_output_forcings = True
               model_output[v] = numpy.zeros([self.nt,self.ny,self.nx], numpy.float)
-            # elif (v != 'ctcpools_vr' and (not '_vr' in v) and (not '_pft' in v) ):
-            #     model_output[v] = numpy.zeros([self.ne,self.nt,self.ny,self.nx], numpy.float)
-            # elif ('_pft' in v and '_vr' in v):
-            #     model_output[v] = numpy.zeros([self.ne,self.npfts,self.nfroot_orders,self.nsoil_layers,self.nt,self.ny,self.nx], numpy.float)
-            # elif ('_vr' in v):
-            #     model_output[v] = numpy.zeros([self.ne,self.nsoil_layers,self.nt,self.ny,self.nx], numpy.float)              
-            # elif ('_pft' in v and v != 'frootctam_pft'):
-            #     model_output[v] = numpy.zeros([self.ne,self.npfts,self.nt,self.ny,self.nx], numpy.float)
-            # elif (v == 'frootctam_pft'):
-            #     model_output[v] = numpy.zeros([self.ne,self.npfts,self.nfroot_orders,self.nt,self.ny,self.nx], numpy.float)
-            # re-written/-organized
             elif (v == 'ctcpools_vr'):
               model_output[v] = numpy.zeros([self.ne,16,self.nsoil_layers,self.nt,self.ny,self.nx], numpy.float)
             elif (v == 'frootctam_pft'):
@@ -1105,8 +1096,7 @@ class MyModel(object):
             elif ('_pft' in v):
               model_output[v] = numpy.zeros([self.ne,self.npfts,self.nt,self.ny,self.nx], numpy.float)
             else:
-              model_output[v] = numpy.zeros([self.ne,self.nt,self.ny,self.nx], numpy.float)
-            
+              model_output[v] = numpy.zeros([self.ne,self.nt,self.ny,self.nx], numpy.float) 
           self.pftfrac = numpy.zeros([self.ny,self.nx,self.npfts], numpy.float)
 
           if (self.site == 'none'):
@@ -1139,30 +1129,10 @@ class MyModel(object):
                           model_output[v][ens_torun[i],:,:,indy_torun[i],indx_torun[i]] = \
                            utils.daily_to_monthly(self.output[v][:,1:])
                     else:
-                      # if (v != 'ctcpools_vr' and (not '_vr' in v) and (not '_pft' in v) ):
-                      #   model_output[v][ens_torun[i],:,indy_torun[i],indx_torun[i]] = \
-                      #    self.output[v][1:]
-                      # elif ('_vr' in v and (not 'ctcpools' in v) and (not '_pft' in v)):
-                      #   for nl in range(0,self.nsoil_layers):
-                      #     model_output[v][ens_torun[i],nl,:,indy_torun[i],indx_torun[i]] = \
-                      #      self.output[v][nl,1:]
-                      # elif ('_pft' in v and '_vr' in v):
-                      #   for nl in range(0,self.nsoil_layers):
-                      #     model_output[v][ens_torun[i],:,:,nl,:,indy_torun[i],indx_torun[i]] = \
-                      #      self.output[v][:,:,nl,1:]
-                      # elif ('_pft' in v and v != 'frootctam_pft'):
-                      #   for p in range(0,self.npfts):
-                      #     model_output[v][ens_torun[i],p,:,indy_torun[i],indx_torun[i]] = \
-                      #      self.output[v][p,1:]
-                      # elif (v == 'frootctam_pft'):
-                      #   for p in range(0,self.npfts):
-                      #     for o in range(0,nfroot_orders):
-                      #       model_output[v][ens_torun[i],p,o,:,indy_torun[i],indx_torun[i]] = \
-                      #       self.output[v][p,o,1:]
                       # rewritten
-                      if (('_vr' in v) or ('_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
+                      if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
                         model_output[v][ens_torun[i],:,:,indy_torun[i],indx_torun[i]] = self.output[v][:,1:]
-                      elif(v == 'frootctam_pft' and v == 'ctcpools_vr'):
+                      elif(v == 'frootctam_pft' or v == 'ctcpools_vr'):
                         model_output[v][ens_torun[i],:,:,:,indy_torun[i],indx_torun[i]] = self.output[v][:,:,1:]
                       elif(v == 'frootctam_pft_vr'):
                         model_output[v][ens_torun[i],:,:,:,:,indy_torun[i],indx_torun[i]] = self.output[v][:,:,:,1:]
@@ -1246,14 +1216,8 @@ class MyModel(object):
                   model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = \
                           myoutput[v][k,:]
               elif(v in self.outvars and not (v in self.forcvars)):
-                # if (('_vr' in v or '_pft' in v) and not 'ctcpools' in v):
-                #   model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                #                     = myoutput[v][0,:,:]
-                # elif(v != 'ctcpools_vr'):
-                #   model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                #                     = myoutput[v][0,:]
                 # rewritten
-                if (('_vr' in v) or ('_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
+                if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
                   model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
                                     = myoutput[v][0,:,:]
                 elif(v == 'frootctam_pft' and v == 'ctcpools_vr'):
@@ -1285,14 +1249,8 @@ class MyModel(object):
                   model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = \
                         myoutput[v][k,:]
               elif(v in self.outvars and not (v in self.forcvars)):
-                # if (('_vr' in v or '_pft' in v) and not 'ctcpools' in v):
-                #   model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                #                     = myoutput[v][0,:,:]
-                # elif(v != 'ctcpools_vr'):
-                #   model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                #                     = myoutput[v][0,:]
                 # rewritten
-                if (('_vr' in v) or ('_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
+                if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
                   model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
                                     = myoutput[v][0,:,:]
                 elif(v == 'frootctam_pft' and v == 'ctcpools_vr'):
@@ -1375,11 +1333,6 @@ class MyModel(object):
                        else:
                          thisoutput[v] = utils.daily_to_monthly(self.output[v][1:])
                      else:
-                       # tailor for froot-related VARs
-                      #  if (('_vr' in v or '_pft' in v) and not 'ctcpools' in v):
-                      #    thisoutput[v] = self.output[v][:,1:]
-                      #  else:
-                      #    thisoutput[v] = self.output[v][1:]
                        #re-written
                        # 2D var
                        if (('_vr' in v) or ('_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
@@ -1431,11 +1384,11 @@ class MyModel(object):
     def write_nc_output(self, output, do_monthly_output=False,prefix='model'):
          #set up output file
          output_nc = Dataset(prefix+'_output.nc', 'w', format='NETCDF4')
-         output_nc.createDimension('pft',self.npfts)
+         output_nc.createDimension('pft',   self.npfts)
          output_nc.createDimension('orders',self.nfroot_orders)
-         output_nc.createDimension('soil',self.nsoil_layers)
-         output_nc.createDimension('lon',self.nx)
-         output_nc.createDimension('lat',self.ny)
+         output_nc.createDimension('soil',  self.nsoil_layers)
+         output_nc.createDimension('lon',   self.nx)
+         output_nc.createDimension('lat',   self.ny)
          if (self.ne > 1):
            output_nc.createDimension('ensemble',self.ne)
            #ens_out = output_nc.createVariable('ensemble','i4',('ensemble',))
@@ -1480,48 +1433,63 @@ class MyModel(object):
          ncvars={}
          for v in output:
             if (self.ne > 1):
-              if (not 'ctcpools' in v and not '_pft' in v and not '_vr' in v):
-                #ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','time','lat','lon'))
-                #Default - don't output PFT-level output for ensembles
-                ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','time','lat','lon'))
-                ncvars[v][:,:,:,:] = output[v][:,:,:,:]
-              elif ('_vr' in v):
+              # if (not 'ctcpools' in v and not '_pft' in v and not '_vr' in v):
+              #   #ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','time','lat','lon'))
+              #   #Default - don't output PFT-level output for ensembles
+              #   ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','time','lat','lon'))
+              #   ncvars[v][:,:,:,:] = output[v][:,:,:,:]
+              # elif ('_vr' in v):
+              #   ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','soil','time','lat','lon'))
+              #   ncvars[v][:,:,:,:,:] = output[v][:,:,:,:,:] 
+              # elif ('_pft' in v and v != 'frootctam_pft'):
+              #   ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','time','lat','lon'))
+              #   ncvars[v][:,:,:,:,:] = output[v][:,:,:,:,:]
+              # elif (v == 'frootctam_pft'):
+              #   ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','orders','time','lat','lon'))
+              #   ncvars[v][:,:,:,:,:,:] = output[v][:,:,:,:,:,:]
+              if (('_vr' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','soil','time','lat','lon'))
-                ncvars[v][:,:,:,:,:] = output[v][:,:,:,:,:] 
-              elif ('_pft' in v and v != 'frootctam_pft'):
+                ncvars[v][:,:,:,:,:] = output[v][:,:,:,:,:]
+              elif ('_pft' in v and (not 'frootctam' in v)):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','time','lat','lon'))
                 ncvars[v][:,:,:,:,:] = output[v][:,:,:,:,:]
               elif (v == 'frootctam_pft'):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','orders','time','lat','lon'))
                 ncvars[v][:,:,:,:,:,:] = output[v][:,:,:,:,:,:]
+              elif (v == 'frootctam_pft_vr'):
+                ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','orders','soil','time','lat','lon'))
+                ncvars[v][:,:,:,:,:,:] = output[v][:,:,:,:,:,:,:]
+              elif (v != 'ctcpools_vr'):
+                ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','time','lat','lon'))
+                ncvars[v][:,:,:,:] = output[v][:,:,:,:]
             else:
-              if (not 'ctcpools' in v and not '_pft' in v and not '_vr' in v):
-                ncvars[v] = output_nc.createVariable(v, 'f4',('time','lat','lon'))
-                if (v in self.forcvars):
-                    ncvars[v][:,:,:] = output[v][:,:,:]
-                else:
-                    ncvars[v][:,:,:] = output[v][0,:,:,:].squeeze()
-              elif ('_pft' in v and '_vr' in v):
-                ncvars[v] = output_nc.createVariable(v, 'f4',('pft','orders','soil','time','lat','lon'))
-                ncvars[v][:,:,:,:,:,:] = output[v][0,:,:,:,:,:,:]
-              elif ('_vr' in v):
+              if (('_vr' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('soil','time','lat','lon'))
-                ncvars[v][:,:,:,:] = output[v][0,:,:,:,:].squeeze()
-              elif ('_pft' in v and v != 'frootctam_pft'):
+                ncvars[v][:,:,:,:] = output[v][0,:,:,:,:]
+              elif ('_pft' in v and (not 'frootctam' in v)):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('pft','time','lat','lon'))
                 ncvars[v][:,:,:,:] = output[v][0,:,:,:,:].squeeze()
               elif (v == 'frootctam_pft'):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('pft','orders','time','lat','lon'))
                 ncvars[v][:,:,:,:,:] = output[v][0,:,:,:,:,:] #NOTE: .squeeze() removed for a bug
+              elif (v == 'frootctam_pft_vr'):
+                ncvars[v] = output_nc.createVariable(v, 'f4',('pft','orders','soil','time','lat','lon'))
+                ncvars[v][:,:,:,:,:,:] = output[v][0,:,:,:,:,:,:]
+              elif (v != 'ctcpools_vr'):
+                ncvars[v] = output_nc.createVariable(v, 'f4',('time','lat','lon'))
+                if (v in self.forcvars):
+                    ncvars[v][:,:,:] = output[v][:,:,:]
+                else:
+                    ncvars[v][:,:,:] = output[v][0,:,:,:].squeeze()
          output_nc.close()
 
          #output for eden vis system - customize as needed
-         if (self.ne > 1):
-           eden_out = numpy.zeros([self.ne,pnum+1],numpy.float)
-           for n in range(0,self.ne):
-             eden_out[n,0:pnum]      = self.parm_ensemble[n,:]
-             eden_out[n,pnum:pnum+1] = numpy.mean(output['gpp'][n,0,0:60,0,0])*365.
-           numpy.savetxt("foreden.csv",eden_out,delimiter=",")
+        #  if (self.ne > 1):
+        #    eden_out = numpy.zeros([self.ne,pnum+1],numpy.float)
+        #    for n in range(0,self.ne):
+        #      eden_out[n,0:pnum]      = self.parm_ensemble[n,:]
+        #      eden_out[n,pnum:pnum+1] = numpy.mean(output['gpp'][n,0,0:60,0,0])*365.
+        #    numpy.savetxt("foreden.csv",eden_out,delimiter=",")
 
     def generate_synthetic_obs(self, parms, err, use_nn=False):
         #generate synthetic observations from model with Gaussian error
