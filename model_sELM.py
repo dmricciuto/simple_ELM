@@ -14,15 +14,12 @@ class MyModel(object):
 
     def __init__(self,site=''):
         self.name = 'sELM'
-        elmsurfdat = Dataset('./surfdata/surfdata_'+site+'.nc','r')
-        elmparms   = Dataset('./parameters/selm_default_parms.nc','r')
-        self.site=site
+        self.site = site
         self.nsoil_layers  = 10
         self.nfroot_orders = 3
-        self.pdefault = {}
-        self.pmin     = {}
-        self.pmax     = {}
-        #self.nparms = 0
+        # site-specific input and generic ELM parameters
+        elmsurfdat = Dataset('./surfdata/surfdata_'+site+'.nc','r')
+        elmparms   = Dataset('./parameters/selm_default_parms.nc','r')
        
         #get active PFTs from surface data
         pct_nat_pft = elmsurfdat['PCT_NAT_PFT'][:].squeeze()
@@ -33,7 +30,10 @@ class MyModel(object):
         self.npfts = len(pftind)
         
         # dictionary of parameters
-        self.parms = {}
+        self.parms    = {}
+        self.pdefault = {}
+        self.pmin     = {}
+        self.pmax     = {}
         #define the subset of elm parameters that apply to selm
         #...added fcur
         elm_parmlist = ['crit_dayl','ndays_on','ndays_off', \
@@ -60,14 +60,14 @@ class MyModel(object):
         self.parms['froot_phen_peak'] = numpy.zeros([self.npfts])+0.5
         self.parms['froot_phen_width']= numpy.zeros([self.npfts])+0.3
         #Parameters arising from TAM
-        # TAM partitioning
-        self.parms['frootpar_t'] = numpy.zeros([self.npfts]) + 0.2
-        self.parms['frootpar_a'] = numpy.zeros([self.npfts]) + 0.3
-        self.parms['frootpar_m'] = numpy.zeros([self.npfts]) + 0.5
         # TAM C/N
-        self.parms['frootcn_t'] = numpy.zeros([self.npfts]) + 24.
-        self.parms['frootcn_a'] = numpy.zeros([self.npfts]) + 42.
-        self.parms['frootcn_m'] = numpy.zeros([self.npfts]) + 60.
+        self.parms['frootcn_t']  = numpy.zeros([self.npfts]) + 60.
+        self.parms['frootcn_a']  = numpy.zeros([self.npfts]) + 42.
+        self.parms['frootcn_m']  = numpy.zeros([self.npfts]) + 24.
+        # TAM partitioning
+        self.parms['frootpar_t'] = numpy.zeros([self.npfts]) + 0.5
+        self.parms['frootpar_a'] = numpy.zeros([self.npfts]) + 0.3
+        self.parms['frootpar_m'] = numpy.zeros([self.npfts]) + 0.2
         # TAM longevity
         self.parms['frootlong_t'] = numpy.zeros([self.npfts]) + 3.
         self.parms['frootlong_a'] = numpy.zeros([self.npfts]) + 1.
@@ -79,6 +79,9 @@ class MyModel(object):
         self.parms['fr_flig_t'] = numpy.zeros([self.npfts]) + 0.25
         self.parms['fr_flig_a'] = numpy.zeros([self.npfts]) + 0.25
         self.parms['fr_flig_m'] = numpy.zeros([self.npfts]) + 0.25
+        self.parms['fr_fcel_t'] = numpy.zeros([self.npfts]) + 0.50
+        self.parms['fr_fcel_a'] = numpy.zeros([self.npfts]) + 0.50
+        self.parms['fr_fcel_m'] = numpy.zeros([self.npfts]) + 0.50
         # difference btw fine-root system GDD and leaf GDD
         self.parms['gdd_crit_gap']        = numpy.zeros([self.npfts]) + 400.
         self.parms['mort_depth_efolding'] = numpy.zeros([self.npfts]) + 0.3743
@@ -87,20 +90,35 @@ class MyModel(object):
         for p in self.parms:
             self.pdefault[p] = self.parms[p]
             if (p == 'crit_dayl'):
-                self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+36000.
-                self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+43000.
+              self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+36000.
+              self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+43000.
             elif (p == 'gdd_crit'):
-                self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+100.
-                self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+700.
+              self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+100.
+              self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+700.
+            elif (p == 'gdd_crit_gap'):
+              self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+200
+              self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+600
             elif (p == 'fpg'):
-                self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+0.70
-                self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+0.95
+              self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+0.70
+              self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+0.95
             elif (p == 'nue'):
-                self.pmin[p] = numpy.multiply(self.parms[p][:], 0.5)
-                self.pmax[p] = numpy.multiply(self.parms[p][:], 2.5)
+              self.pmin[p] = numpy.multiply(self.parms[p][:], 0.5)
+              self.pmax[p] = numpy.multiply(self.parms[p][:], 2.5)
+            elif (p == 'mort_depth_efolding'):
+              self.pmin[p] = numpy.multiply(self.parms[p][:], 0.5)
+              self.pmax[p] = numpy.multiply(self.parms[p][:], 2.5)
+            elif (p == 'frootlong_t'):
+              self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+3.
+              self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+10.
+            elif (p == 'frootlong_a'):
+              self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+0.5
+              self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+4.
+            elif (p == 'frootlong_m'):
+              self.pmin[p] = numpy.multiply(self.parms[p][:],0.0)+0.13
+              self.pmax[p] = numpy.multiply(self.parms[p][:],0.0)+1.
             elif (not 'season_decid' in p):
-                self.pmin[p] = numpy.multiply(self.parms[p],0.50)
-                self.pmax[p] = numpy.multiply(self.parms[p],1.50)
+              self.pmin[p] = numpy.multiply(self.parms[p],0.50)
+              self.pmax[p] = numpy.multiply(self.parms[p],1.50)
             #elif ():
             #self.nparms = self.nparms+len(self.parms[p])
         
@@ -174,6 +192,7 @@ class MyModel(object):
            #fr_flig[:,:] = numpy.tile([0.25,0.25,0.25],(npfts,1))
            fr_flab = numpy.array([parms['fr_flab_t'],parms['fr_flab_a'],parms['fr_flab_m']]).T
            fr_flig = numpy.array([parms['fr_flig_t'],parms['fr_flig_a'],parms['fr_flig_m']]).T
+           fr_fcel = numpy.array([parms['fr_fcel_t'],parms['fr_fcel_a'],parms['fr_fcel_m']]).T
 
            #froot_long[:,:]   = numpy.tile([0.5,1.0,1.5],(1,1))
            #froot_long[:,:] = numpy.tile([i*3 for i in parms['froot_long']],(nfroot_orders,1)).T *\
@@ -864,7 +883,7 @@ class MyModel(object):
               ctc_input[0,nl] = sum(leafc_litter_vr[:,nl]*parms['lf_flab']) + sum(sum(frootc_litter_vr[:,:,nl] * fr_flab[:,:]))
               ctc_input[2,nl] = sum(leafc_litter_vr[:,nl]*parms['lf_flig']) + sum(sum(frootc_litter_vr[:,:,nl] * fr_flig[:,:]))
               ctc_input[1,nl] = sum(leafc_litter_vr[:,nl]*(1.0 - parms['lf_flab'] - parms['lf_flig'])) + \
-                                sum(sum(frootc_litter_vr[:,:,nl]*(1.0-fr_flab[:,:]-fr_flig[:,:])))
+                                sum(sum(frootc_litter_vr[:,:,nl]*fr_fcel[:,:]))
               ctc_input[7,nl] = sum(livestemc_litter_vr[:,nl] + livecrootc_litter_vr[:,nl] + deadcrootc_litter_vr[:,nl] + deadstemc_litter_vr[:,nl])
               #Nitrogen
               ctc_input[8,nl] = sum(leafn_litter_vr[:,nl]*parms['lf_flab']) + \
@@ -872,7 +891,7 @@ class MyModel(object):
               ctc_input[10,nl] = sum(leafn_litter_vr[:,nl]*parms['lf_flig']) + \
                                 sum(sum(frootc_litter_vr[:,:,nl]*fr_flig[:,:] / frootcn[:,:]))
               ctc_input[9,nl]= sum(leafn_litter_vr[:,nl]*(1.0 - parms['lf_flig'] - parms['lf_flab'])) +  \
-                                sum(sum(frootc_litter_vr[:,:,nl] * (1.0-fr_flab[:,:]-fr_flig[:,:]) / frootcn[:,:]))
+                                sum(sum(frootc_litter_vr[:,:,nl]*fr_fcel[:,:] / frootcn[:,:]))
               ctc_input[15,nl] =sum((livestemc_litter_vr[:,nl] + livecrootc_litter_vr[:,nl]) / numpy.maximum(parms['livewdcn'],[10.]*npfts)) + \
                                 sum((deadcrootc_litter_vr[:,nl] + deadstemc_litter_vr[:,nl]) / numpy.maximum(parms['deadwdcn'],[10.]*npfts))
             
@@ -1140,11 +1159,9 @@ class MyModel(object):
                         model_output[v][ens_torun[i],:,indy_torun[i],indx_torun[i]] = self.output[v][1:]
                   elif (v in self.forcvars):
                     if (do_monthly_output):
-                       model_output[v][:,indy_torun[i],indx_torun[i]] = \
-                            utils.daily_to_monthly(self.forcings[v])
+                       model_output[v][:,indy_torun[i],indx_torun[i]] = utils.daily_to_monthly(self.forcings[v])
                     else:
-                       model_output[v][:,indy_torun[i],indx_torun[i]] = \
-                            self.forcings[v][:]
+                       model_output[v][:,indy_torun[i],indx_torun[i]] = self.forcings[v][:]
             #test
             #print('frootctam shape',model_output['frootctam_pft'].shape)
             self.write_nc_output(model_output, do_monthly_output=do_monthly_output, prefix=prefix)
@@ -1213,22 +1230,17 @@ class MyModel(object):
             for v in myoutvars:
               if (all_ensembles_onejob):
                 for k in range(0,self.ne):
-                  model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = \
-                          myoutput[v][k,:]
-              elif(v in self.outvars and not (v in self.forcvars)):
+                  model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][k,:]
+              elif((v in self.outvars) and (not v in self.forcvars)):
                 # rewritten
                 if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
-                  model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:,:]
-                elif(v == 'frootctam_pft' and v == 'ctcpools_vr'):
-                  model_output[v][ens_torun[thisjob-1],:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:,:,:]
+                  model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:,:]
+                elif(v == 'frootctam_pft' or v == 'ctcpools_vr'):
+                  model_output[v][ens_torun[thisjob-1],:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:,:,:]
                 elif(v == 'frootctam_pft_vr'):
-                  model_output[v][ens_torun[thisjob-1],:,:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:,:,:,:]
+                  model_output[v][ens_torun[thisjob-1],:,:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:,:,:,:]
                 else:
-                  model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:]                    
+                  model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:]                    
             self.pftfrac[indy_torun[thisjob-1],indx_torun[thisjob-1],:] = pftwt_torun[:,thisjob-1]
 
            #receive remaining messages and finalize
@@ -1246,22 +1258,17 @@ class MyModel(object):
             for v in myoutvars:
               if (all_ensembles_onejob):
                 for k in range(0,self.ne):
-                  model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = \
-                        myoutput[v][k,:]
-              elif(v in self.outvars and not (v in self.forcvars)):
+                  model_output[v][k,pfts_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][k,:]
+              elif((v in self.outvars) and (not v in self.forcvars)):
                 # rewritten
                 if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
-                  model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:,:]
-                elif(v == 'frootctam_pft' and v == 'ctcpools_vr'):
-                  model_output[v][ens_torun[thisjob-1],:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:,:,:]
+                  model_output[v][ens_torun[thisjob-1],:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:,:]
+                elif(v == 'frootctam_pft' or v == 'ctcpools_vr'):
+                  model_output[v][ens_torun[thisjob-1],:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:,:,:]
                 elif(v == 'frootctam_pft_vr'):
-                  model_output[v][ens_torun[thisjob-1],:,:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:,:,:,:]
+                  model_output[v][ens_torun[thisjob-1],:,:,:,:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:,:,:,:]
                 else:
-                  model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] \
-                                    = myoutput[v][0,:]
+                  model_output[v][ens_torun[thisjob-1],:,indy_torun[thisjob-1],indx_torun[thisjob-1]] = myoutput[v][0,:]
             self.pftfrac[indy_torun[thisjob-1],indx_torun[thisjob-1],:] = pftwt_torun[:,thisjob-1]
            # write to .nc
            self.write_nc_output(model_output, do_monthly_output=do_monthly_output, prefix=prefix)
@@ -1321,8 +1328,7 @@ class MyModel(object):
                     myparms[self.ensemble_pnames[p]] = self.parm_ensemble[k,p]
                 # run the model
                 print('Starting SLEM instance w/ MPI')
-                self.selm_instance(myparms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc, \
-                        pftwt=mypftwt/100.0)
+                self.selm_instance(myparms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc,pftwt=mypftwt/100.0)
                 # deal with ensemble outputs
                 for v in myoutvars:
                    # self.output --> thisoutput
@@ -1362,13 +1368,13 @@ class MyModel(object):
                       elif (v == 'frootctam_pft_vr'):
                         thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,self.nfroot_orders,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
                       elif (v == 'ctcpools_vr'):
-                        thisoutput_ens[v] = numpy.zeros([k_max,self.nsoil_layers,self.nfroot_orders,max(thisoutput[v].shape)], numpy.float)
+                        thisoutput_ens[v] = numpy.zeros([k_max,16,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
                       else:
                         thisoutput_ens[v] = numpy.zeros([k_max, len(thisoutput[v])], numpy.float)
                    # fill thisoutput_ens
-                   if (('_vr' in v) or ('_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
+                   if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
                      thisoutput_ens[v][k,:,:] = thisoutput[v]
-                   elif (v == 'frootctam_pft' and v == 'ctcpools_vr'):
+                   elif (v == 'frootctam_pft' or v == 'ctcpools_vr'):
                      thisoutput_ens[v][k,:,:,:] = thisoutput[v]
                    elif (v == 'frootctam_pft_vr'):
                      thisoutput_ens[v][k,:,:,:,:] = thisoutput[v]
@@ -1394,13 +1400,20 @@ class MyModel(object):
            #ens_out = output_nc.createVariable('ensemble','i4',('ensemble',))
            #ens_out.axis="E"
            #ens_out.CoordinateAxisType = "Ensemble"
+          #  pnum=0
+          #  for p in self.ensemble_pnames:
+          #    #write parameter values to file
+          #    pvars={}
+          #    pvars[p] = output_nc.createVariable(p+'_pft'+str(self.ensemble_ppfts[pnum]), 'f8', ('ensemble',))
+          #    pvars[p][:] = self.parm_ensemble[:,pnum]
+          #    pnum=pnum+1
            pnum=0
            for p in self.ensemble_pnames:
-             #write parameter values to file
              pvars={}
-             pvars[p] = output_nc.createVariable(p+'_pft'+str(self.ensemble_ppfts[pnum]), 'f8', ('ensemble',))
-             pvars[p][:] = self.parm_ensemble[:,pnum]
+             pvars[p] = output_nc.createVariable(p, 'f8', ('ensemble','pft'))
+             pvars[p][:,:] = self.parm_ensemble[:,pnum,:]
              pnum=pnum+1
+
          if (self.site == 'none'):
            lat_out = output_nc.createVariable('lat','f8',('lat',))
            lon_out = output_nc.createVariable('lon','f8',('lon',))
@@ -1459,7 +1472,7 @@ class MyModel(object):
               elif (v == 'frootctam_pft_vr'):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','pft','orders','soil','time','lat','lon'))
                 ncvars[v][:,:,:,:,:,:] = output[v][:,:,:,:,:,:,:]
-              elif (v != 'ctcpools_vr'):
+              elif (v != 'ctcpools_vr' and (not v in self.forcvars)):
                 ncvars[v] = output_nc.createVariable(v, 'f4',('ensemble','time','lat','lon'))
                 ncvars[v][:,:,:,:] = output[v][:,:,:,:]
             else:
@@ -1678,7 +1691,7 @@ class MyModel(object):
       self.ne              = n_ensemble
       #self.parm_ensemble   = numpy.zeros([n_ensemble,len(pnames)])
       # 2d-->3d?
-      self.parm_ensemble   = numpy.zeros([n_ensemble,len(pnames),len(ppfts)])
+      self.parm_ensemble   = numpy.zeros([n_ensemble,len(pnames),self.npfts])
       
       if (fname != ''):
         #print('Generating parameter ensemble from %d'%(fname))
@@ -1696,9 +1709,9 @@ class MyModel(object):
           lnum=lnum+1
         inparms.close()
       else:
-        for n in range(0,n_ensemble):
-          # HACK: to have identical ensemble members uncomment line below
-          numpy.random.seed(2018)
+        # HACK: to have identical ensemble members uncomment line below
+        numpy.random.seed(2018)
+        for n in range(0,n_ensemble):          
           for p in range(0,len(pnames)):
             #Sample uniformly from the parameter space
             #NOTE:Samples are uniformly distributed over the half-open interval [low, high) (includes low, but excludes high).
