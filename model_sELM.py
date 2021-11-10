@@ -1331,55 +1331,55 @@ class MyModel(object):
                 self.selm_instance(myparms, use_nn=use_nn, spinup_cycles=spinup_cycles, seasonal_rootalloc=seasonal_rootalloc,pftwt=mypftwt/100.0)
                 # deal with ensemble outputs
                 for v in myoutvars:
-                   # self.output --> thisoutput
-                   if (v in self.outvars):
-                     if (do_monthly_output):
-                       if (('_vr' in v or '_pft' in v) and not 'ctcpools' in v):
-                         thisoutput[v] = utils.daily_to_monthly(self.output[v][:,1:])
-                       else:
-                         thisoutput[v] = utils.daily_to_monthly(self.output[v][1:])
-                     else:
-                       #re-written
-                       # 2D var
-                       if (('_vr' in v) or ('_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
-                         thisoutput[v] = self.output[v][:,1:]
-                       # 3D var
-                       elif(v == 'frootctam_pft' and v == 'ctcpools_vr'):
-                         thisoutput[v] = self.output[v][:,:,1:]
-                       # 4D var
-                       elif(v == 'frootctam_pft_vr'):
-                         thisoutput[v] = self.output[v][:,:,:,1:]
-                       # 1D var
-                       else:
-                         thisoutput[v] = self.output[v][1:]
-                   elif (v in self.forcvars):
-                     if (do_monthly_output):
-                         thisoutput[v] = utils.daily_to_monthly(self.forcings[v])
-                     else:
-                         thisoutput[v] = self.forcings[v]
-                   # thisoutput --> thisoutput_ens
-                   if (k == 0):
-                      if (('_vr' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
-                        thisoutput_ens[v] = numpy.zeros([k_max,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
-                      elif ('_pft' in v and (not 'frootctam' in v)):
-                        thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,       max(thisoutput[v].shape)], numpy.float)
-                      elif (v == 'frootctam_pft'):
-                        thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,self.nfroot_orders,max(thisoutput[v].shape)], numpy.float)
-                      elif (v == 'frootctam_pft_vr'):
-                        thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,self.nfroot_orders,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
-                      elif (v == 'ctcpools_vr'):
-                        thisoutput_ens[v] = numpy.zeros([k_max,16,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
+                  # self.output --> thisoutput
+                  if (v in self.outvars):
+                    if (do_monthly_output):
+                      if (('_vr' in v or '_pft' in v) and not 'ctcpools' in v):
+                        thisoutput[v] = utils.daily_to_monthly(self.output[v][:,1:])
                       else:
-                        thisoutput_ens[v] = numpy.zeros([k_max, len(thisoutput[v])], numpy.float)
-                   # fill thisoutput_ens
-                   if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
-                     thisoutput_ens[v][k,:,:] = thisoutput[v]
-                   elif (v == 'frootctam_pft' or v == 'ctcpools_vr'):
-                     thisoutput_ens[v][k,:,:,:] = thisoutput[v]
-                   elif (v == 'frootctam_pft_vr'):
-                     thisoutput_ens[v][k,:,:,:,:] = thisoutput[v]
-                   else:
-                     thisoutput_ens[v][k,:] = thisoutput[v]
+                        thisoutput[v] = utils.daily_to_monthly(self.output[v][1:])
+                    else:
+                      #re-written
+                      # 2D var
+                      if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
+                        thisoutput[v] = self.output[v][:,1:]
+                      # 3D var
+                      elif(v == 'frootctam_pft' or v == 'ctcpools_vr'):
+                        thisoutput[v] = self.output[v][:,:,1:]
+                      # 4D var
+                      elif(v == 'frootctam_pft_vr'):
+                        thisoutput[v] = self.output[v][:,:,:,1:]
+                      # 1D var
+                      else:
+                        thisoutput[v] = self.output[v][1:]
+                  elif (v in self.forcvars):
+                    if (do_monthly_output):
+                        thisoutput[v] = utils.daily_to_monthly(self.forcings[v])
+                    else:
+                        thisoutput[v] = self.forcings[v]
+                  # thisoutput --> thisoutput_ens
+                  if (k == 0):
+                    if (('_vr' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
+                      thisoutput_ens[v] = numpy.zeros([k_max,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
+                    elif ('_pft' in v and (not 'frootctam' in v)):
+                      thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,       max(thisoutput[v].shape)], numpy.float)
+                    elif (v == 'frootctam_pft'):
+                      thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,self.nfroot_orders,max(thisoutput[v].shape)], numpy.float)
+                    elif (v == 'frootctam_pft_vr'):
+                      thisoutput_ens[v] = numpy.zeros([k_max,self.npfts,self.nfroot_orders,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
+                    elif (v == 'ctcpools_vr'):
+                      thisoutput_ens[v] = numpy.zeros([k_max,16,self.nsoil_layers,max(thisoutput[v].shape)], numpy.float)
+                    else:
+                      thisoutput_ens[v] = numpy.zeros([k_max, len(thisoutput[v])], numpy.float)
+                  # fill thisoutput_ens
+                  if (('_vr' in v or '_pft' in v) and (not 'ctcpools' in v) and (not 'frootctam' in v)):
+                    thisoutput_ens[v][k,:,:] = thisoutput[v]
+                  elif (v == 'frootctam_pft' or v == 'ctcpools_vr'):
+                    thisoutput_ens[v][k,:,:,:] = thisoutput[v]
+                  elif (v == 'frootctam_pft_vr'):
+                    thisoutput_ens[v][k,:,:,:,:] = thisoutput[v]
+                  else:
+                    thisoutput_ens[v][k,:] = thisoutput[v]
 
               comm.send(rank,           dest=0, tag=3)
               comm.send(myjob,          dest=0, tag=4)
@@ -1718,4 +1718,4 @@ class MyModel(object):
             #self.parm_ensemble[n,p] = numpy.random.uniform(low=self.pmin[pnames[p]][ppfts[p]],high=self.pmax[pnames[p]][ppfts[p]])
             # draw values of the size of # PFTs
             self.parm_ensemble[n,p,:] = numpy.random.uniform(low=self.pmin[pnames[p]][:],high=self.pmax[pnames[p]][:])
-        numpy.savetxt('inputs.txt', self.parm_ensemble)
+        #numpy.savetxt('inputs.txt', self.parm_ensemble)
