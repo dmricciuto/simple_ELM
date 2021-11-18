@@ -12,11 +12,11 @@ import sys
 
 class MyModel(object):
 
-    def __init__(self,site=''):
+    def __init__(self,site='',nfroot_orders=3):
         self.name = 'sELM'
         self.site = site
         self.nsoil_layers  = 10
-        self.nfroot_orders = 3
+        self.nfroot_orders = nfroot_orders
         # site-specific input and generic ELM parameters
         elmsurfdat = Dataset('./surfdata/surfdata_'+site+'.nc','r')
         elmparms   = Dataset('./parameters/selm_default_parms.nc','r')
@@ -44,7 +44,7 @@ class MyModel(object):
                 'r_mort','lwtop_ann','q10_hr','k_l1','k_l2','k_l3','k_s1', \
                 'k_s2','k_s3','k_s4','k_frag','rf_l1s1','rf_l2s2','rf_l3s3',\
                 'rf_s1s2','rf_s2s3','rf_s3s4','cwd_flig','fr_flig','lf_flig', \
-                'fr_flab','lf_flab','br_xr','fcur']
+                'fr_flab','lf_flab','fr_fcel','br_xr','fcur']
         #get the elm parameters from the parameter file
         for p in elm_parmlist:
             if (len(elmparms[p][:]) > 1):
@@ -61,17 +61,17 @@ class MyModel(object):
         self.parms['froot_phen_width']= numpy.zeros([self.npfts])+0.3
         #Parameters arising from TAM
         # TAM C/N
-        self.parms['frootcn_t']  = numpy.zeros([self.npfts]) + 60.
-        self.parms['frootcn_a']  = numpy.zeros([self.npfts]) + 42.
-        self.parms['frootcn_m']  = numpy.zeros([self.npfts]) + 24.
+        self.parms['frootcn_t']  = numpy.zeros([self.npfts]) + 60#60.
+        self.parms['frootcn_a']  = numpy.zeros([self.npfts]) + 42#42.
+        self.parms['frootcn_m']  = numpy.zeros([self.npfts]) + 24#24.
         # TAM partitioning
-        self.parms['frootpar_t'] = numpy.zeros([self.npfts]) + 0.5
-        self.parms['frootpar_a'] = numpy.zeros([self.npfts]) + 0.3
-        self.parms['frootpar_m'] = numpy.zeros([self.npfts]) + 0.2
+        self.parms['frootpar_t'] = numpy.zeros([self.npfts]) + 0.5#0.5
+        self.parms['frootpar_a'] = numpy.zeros([self.npfts]) + 0.3#0.3
+        self.parms['frootpar_m'] = numpy.zeros([self.npfts]) + 0.2#0.2
         # TAM longevity
-        self.parms['frootlong_t'] = numpy.zeros([self.npfts]) + 3.
-        self.parms['frootlong_a'] = numpy.zeros([self.npfts]) + 1.
-        self.parms['frootlong_m'] = numpy.zeros([self.npfts]) + 0.5
+        self.parms['frootlong_t'] = numpy.zeros([self.npfts]) + 2.25
+        self.parms['frootlong_a'] = numpy.zeros([self.npfts]) + 1.35
+        self.parms['frootlong_m'] = numpy.zeros([self.npfts]) + 0.90
         # TAM chemistry
         self.parms['fr_flab_t'] = numpy.zeros([self.npfts]) + 0.25
         self.parms['fr_flab_a'] = numpy.zeros([self.npfts]) + 0.25
@@ -170,6 +170,7 @@ class MyModel(object):
            frootcn         = numpy.tile(parms['frootcn'],(nfroot_orders,1)).T
            fr_flab         = numpy.tile(parms['fr_flab'],(nfroot_orders,1)).T
            fr_flig         = numpy.tile(parms['fr_flig'],(nfroot_orders,1)).T
+           fr_fcel         = numpy.tile(parms['fr_fcel'],(nfroot_orders,1)).T
            froot_long      = numpy.tile(parms['froot_long'],(nfroot_orders,1)).T
         elif nfroot_orders == 2:
            #froot_partition = [0.6, 0.4] 
@@ -392,14 +393,9 @@ class MyModel(object):
               leafc_stor[p,0]  = leafc_stor[p,self.nobs-1]
               leafc[p,0]       = leafc[p,self.nobs-1]
               frootc_stor[p,0] = frootc_stor[p,self.nobs-1]
-              ####
-              # OLD
-              #frootc[p,0]      = frootc[p,self.nobs-1]
-              # NEW
               frootc_ovr[p,:,:,0]= frootc_ovr[p,:,:,self.nobs-1]
               frootc_o[p,:,0]    = frootc_o[p,:,self.nobs-1]
               frootc[p,0]        = frootc[p,self.nobs-1]#sum(frootc_o[p,:,0])
-              
               lai[p,0]         = lai[p,self.nobs-1]
               livestemc[p,0]   = livestemc[p,self.nobs-1]
               deadstemc[p,0]   = deadstemc[p,self.nobs-1]
@@ -407,6 +403,7 @@ class MyModel(object):
               deadcrootc[p,0]  = deadcrootc[p,self.nobs-1]
               cstor[p,0]       = cstor[p,self.nobs-1]
               nstor[p,0]       = nstor[p,self.nobs-1]
+              fpg[p,0]         = fpg[p,self.nobs-1]
             for nl in range(0,self.nsoil_layers):
               ctcpools_vr[:,nl,0]  = ctcpools_vr[:,nl,self.nobs-1]
               sminn_vr[nl,0]       = sminn_vr[nl,self.nobs-1]
@@ -460,7 +457,7 @@ class MyModel(object):
                 else:
                   leafc_trans[p]  = 0.0
                   #frootc_trans[p] = 0.0
-                #fine root on
+                #fine-root on
                 if (gdd[p] >= parms['gdd_crit'][p]+parms['gdd_crit_gap'][p] and gdd_last < parms['gdd_crit'][p]+parms['gdd_crit_gap'][p]):
                   frooton[p] = parms['ndays_on'][0]
                   frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
@@ -484,27 +481,27 @@ class MyModel(object):
                 # fine root litter decoupled from leaf shedding
               #Evergreen phenology / leaf & fine-root mortality                            
               else:
-                gdd_last = gdd[p]
-                gdd_base = 0.0
-                gdd[p] = (doy[v] > 1) * (gdd[p] + max(0.5*(tmax[v]+tmin[v])-gdd_base, 0.0))
-                # storage to leaf on
-                if (gdd[p] >= parms['gdd_crit'][p] and gdd_last < parms['gdd_crit'][p]):
-                  leafon[p] = parms['ndays_on'][0]
-                  leafc_trans_tot[p]  = leafc_stor[p,v] * parms['fstor2tran'][0]
-                if (leafon[p] > 0):
-                  leafc_trans[p]  = leafc_trans_tot[p] / parms['ndays_on'][0]
-                  leafon[p] = leafon[p] - 1
-                else:
-                  leafc_trans[p]  = 0.0
-                # storage to fine roots on
-                if (gdd[p] >= parms['gdd_crit'][p]+parms['gdd_crit_gap'][p] and gdd_last < parms['gdd_crit'][p]+parms['gdd_crit_gap'][p]):
-                  frooton[p] = parms['ndays_on'][0]
-                  frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
-                if (frooton[p] > 0):
-                  frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
-                  frooton[p] = frooton[p] - 1
-                else:
-                  frootc_trans[p] = 0.0
+                # gdd_last = gdd[p]
+                # gdd_base = 0.0
+                # gdd[p] = (doy[v] > 1) * (gdd[p] + max(0.5*(tmax[v]+tmin[v])-gdd_base, 0.0))
+                # # storage to leaf on
+                # if (gdd[p] >= parms['gdd_crit'][p] and gdd_last < parms['gdd_crit'][p]):
+                #   leafon[p] = parms['ndays_on'][0]
+                #   leafc_trans_tot[p]  = leafc_stor[p,v] * parms['fstor2tran'][0]
+                # if (leafon[p] > 0):
+                #   leafc_trans[p]  = leafc_trans_tot[p] / parms['ndays_on'][0]
+                #   leafon[p] = leafon[p] - 1
+                # else:
+                #   leafc_trans[p]  = 0.0
+                # storage to fine-roots on
+                # if (gdd[p] >= parms['gdd_crit'][p]+parms['gdd_crit_gap'][p] and gdd_last < parms['gdd_crit'][p]+parms['gdd_crit_gap'][p]):
+                #   frooton[p] = parms['ndays_on'][0]
+                #   frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
+                # if (frooton[p] > 0):
+                #   frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
+                #   frooton[p] = frooton[p] - 1
+                # else:
+                #   frootc_trans[p] = 0.0
                 # mortality            
                 retransn[p]     = leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) * (1.0 / parms['leafcn'][p] - 1.0 / parms['lflitcn'][p])
                 leafc_litter[p] = parms['r_mort'][0] * leafc[p,v]/365.0  + leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. )
@@ -516,6 +513,7 @@ class MyModel(object):
                 # OLD
                 #frootc_litter[p]   = parms['r_mort'][0] * frootc[p,v]/365.0 + \
                 #                     frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)
+              
               #Calculate live wood turnover
               livestemc_turnover[p]  = parms['lwtop_ann'][0] / 365. * livestemc[p,v]
               livecrootc_turnover[p] = parms['lwtop_ann'][0] / 365. * livecrootc[p,v]
@@ -619,20 +617,20 @@ class MyModel(object):
                     f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
               
               # Actual allocation STARTs here
-              leafc_alloc[p,v]    = availc[p] * 1.0/callom[p] * parms['fcur'][p]
-              frootc_alloc[p,v]   = availc[p] * f1/callom[p]  * parms['fcur'][p]
-              leafcstor_alloc[p]  = availc[p] * 1.0/callom[p] * (1-parms['fcur'][p])
-              frootcstor_alloc[p] = availc[p] * f1/callom[p]  * (1-parms['fcur'][p])
-              # if (parms['season_decid'][p] == 1):
-              #   leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]*0.5
-              #   frootc_alloc[p,v]   = availc[p] * f1/callom[p] *0.5
-              #   leafcstor_alloc[p]  = availc[p] * 1.0/callom[p]*0.5
-              #   frootcstor_alloc[p] = availc[p] * f1/callom[p] *0.5
-              # else:
-              #   leafcstor_alloc[p]  = 0.
-              #   frootcstor_alloc[p] = 0.
-              #   leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]
-              #   frootc_alloc[p,v]   = availc[p] * f1 /callom[p]
+              # leafc_alloc[p,v]    = availc[p] * 1.0/callom[p] * parms['fcur'][p]
+              # frootc_alloc[p,v]   = availc[p] * f1/callom[p]  * parms['fcur'][p]
+              # leafcstor_alloc[p]  = availc[p] * 1.0/callom[p] * (1-parms['fcur'][p])
+              # frootcstor_alloc[p] = availc[p] * f1/callom[p]  * (1-parms['fcur'][p])
+              if (parms['season_decid'][p] == 1):
+                leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]*0.5
+                frootc_alloc[p,v]   = availc[p] * f1/callom[p] *0.5
+                leafcstor_alloc[p]  = availc[p] * 1.0/callom[p]*0.5
+                frootcstor_alloc[p] = availc[p] * f1/callom[p] *0.5
+              else:
+                leafcstor_alloc[p]  = 0.
+                frootcstor_alloc[p] = 0.
+                leafc_alloc[p,v]    = availc[p] * 1.0/callom[p]
+                frootc_alloc[p,v]   = availc[p] * f1 /callom[p]
               
               livestemc_alloc[p,v] = availc[p] * flw*f2/callom[p]
               deadstemc_alloc[p,v] = availc[p] * (1.0-flw) * f2/callom[p]
@@ -724,24 +722,28 @@ class MyModel(object):
             # new profile: distribution profile & litter input profile
             froot_dist = numpy.zeros([npfts,self.nsoil_layers],numpy.float)
             for p in range(0,npfts):
-              if (sum(sminn_vr[:,v]) > 0):
-                froot_dist[p,:] = root_frac[p] * sminn_vr[:,v]/sum(sminn_vr[:,v])
-              else:
-                froot_dist[p,:] = root_frac[p]
-              froot_dist[p,:] = froot_dist[p,:]/sum(froot_dist[p,:])
+              # if (sum(sminn_vr[:,v]) > 0):
+              #   froot_dist[p,:] = root_frac[p] * sminn_vr[:,v]/sum(sminn_vr[:,v])
+              # else:
+              #   froot_dist[p,:] = root_frac[p]
+              # froot_dist[p,:] = froot_dist[p,:]/sum(froot_dist[p,:])
+              # keep the old profile
+              froot_dist[p,:] = root_frac[p]
               # litter input
               if nfroot_orders == 1:
-                frootc_litter_ovr[p,:,:]= (parms['r_mort'][0] * frootc_o[p,:,v]/365.0 +\
-                                            frootc_o[p,:,v] * 1.0 / (froot_long[p,:]*365.))*\
-                                            root_frac[p]
+                frootc_litter_ovr[p,:,:]= frootc_ovr[p,:,:,v]*\
+                                (parms['r_mort'][0]/365.0 + 1.0 / (froot_long[p,:]*365.0))[:,None]
               elif nfroot_orders == 3:
                 #Coupled Death
                 # ... when T root dies, A & M root must join; when A dies, M must join
                 # ... scaled by exp(1/4)
                 # matrix * matrix
-                frootc_litter_ovr[p,:,:] = frootc_ovr[p,:,:,v]*\
-                                numpy.tile(long_scalar[p,:],(3,1))*\
-                                (parms['r_mort'][0]/365.0 + 1.0 / (froot_long[p,:]*365.0))[:,None]                           
+                # frootc_litter_ovr[p,:,:] = frootc_ovr[p,:,:,v]*\
+                #                 numpy.tile(long_scalar[p,:],(3,1))*\
+                #                 (parms['r_mort'][0]/365.0 + 1.0 / (froot_long[p,:]*365.0))[:,None]
+                frootc_litter_ovr[p,:,:]= frootc_ovr[p,:,:,v]*\
+                                (parms['r_mort'][0]/365.0 + 1.0 / (froot_long[p,:]*365.0))[:,None]
+
                 # #T root
                 # frootc_litter_ovr[p,2,:] = (long_scalar*parms['r_mort'][0] * frootc_o[p,2,v]/365.0 + \
                 #                             frootc_o[p,2,v] * 1.0 / (froot_long[p,2]*365.))*\
