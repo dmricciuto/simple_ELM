@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from math import sin, cos, sqrt, atan2, radians
 import math, time, os
 import utils
+import nsc
 #import load_forcings
 
 class MyModel(object):
@@ -529,7 +530,7 @@ class MyModel(object):
                         / 365.0 * nstor[p,v] * surf_prof[nl]
             # Take XSMR From cpool instead (below)
             for p in range(0,npfts):
-              cstor_turnover[p] = parms['br_xr'][p] * (3600.*24.) * cstor[p,v] * trate
+              # cstor_turnover[p] = parms['br_xr'][p] * (3600.*24.) * cstor[p,v] * trate
 
               #increment plant C pools
               leafc[p,v+1]       = leafc[p,v]       + fpg[p,v]*leafc_alloc[p,v] + leafc_trans[p] - leafc_litter[p]
@@ -544,11 +545,18 @@ class MyModel(object):
                       / 365.0 * livecrootc[p,v] - livecrootc_turnover[p]
               deadcrootc[p,v+1]  = deadcrootc[p,v]  + fpg[p,v]*deadcrootc_alloc[p] - parms['r_mort'][0] \
                       * mort_factor / 365.0 * deadcrootc[p,v] + livecrootc_turnover[p]
-              cstor[p,v+1]       = cstor[p,v] + cstor_alloc[p] - parms['r_mort'][0] / 365.0 * \
-                      cstor[p,v] - cstor_turnover[p] - xsmr[p]
+              cstor_rates = nsc.rates(cstor[p,v], 
+                                      br_xr = parms['br_xr'][p],
+                                      trate = trate,
+                                      availc = availc[p],
+                                      fpg = fpg[p,v],
+                                      mr = mr[p,v], 
+                                      gpp = gpp[p,v],
+                                      r_mort = parms['r_mort'][p])
+              cstor[p,v+1]       = cstor[p,v] + nsc.stoich(cstor_rates)['cstor']
               #Increment plant N pools
               if (calc_nlimitation):
-                nstor[p,v+1] = nstor[p,v] - parms['r_mort'][0] / 365.0 * nstor[p,v] + \
+                nstor[p,v+1] = nstor[p,v] - parms['r_mort'][p] / 365.0 * nstor[p,v] + \
                         retransn[p] - plant_nalloc[p] + fpi*plant_ndemand[p]  
 
               #Calculate NPP
