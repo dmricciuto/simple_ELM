@@ -16,7 +16,7 @@ model.load_forcings(site=site)
 # fig, ax = plt.subplots(2,2)
 print('running the default model')
 
-kwargs = dict(use_nn=True, seasonal_rootalloc=False, spinup_cycles=3)
+kwargs = dict(use_nn=True, seasonal_rootalloc=False, spinup_cycles=2)
 model.run_selm(**kwargs)
 # ax[0,0].plot(model.output['lai_pft'].squeeze()[0:365],'b')
 # ax[0,0].set_ylabel('LAI')
@@ -41,5 +41,5 @@ for key in model.output:
 data['site'] = site
 data['kwargs'] = kwargs
 
-with open('../simple_ELM-output/model_output_spinup_3.json', 'w') as jsonfile:
+with open('../simple_ELM-output/model_output_test.json', 'w') as jsonfile:
     dump(data, jsonfile)

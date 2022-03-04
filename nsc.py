@@ -11,7 +11,6 @@ def stoich_v0(rates):
     vec['cstor'] = rates['cstor_alloc'] - rates['c_mortality']\
         - rates['cstor_turnover'] - rates['xsmr']
     return vec    
-    
 
 def rates_v0(cstor, **kwargs):
     rs = dict()
@@ -21,10 +20,16 @@ def rates_v0(cstor, **kwargs):
     rs['c_mortality'] = kwargs['r_mort'] / 365. * cstor
     return rs
 
+def nullcline_v0(**kwargs):
+    U = kwargs['br_xr']*(3600.*24.)*kwargs['trate'] + kwargs['r_mort']/365.
+    N = kwargs['availc']*(1. - kwargs['fpg']) - max(kwargs['mr']-kwargs['gpp'], 0.)
+    return N/U
+    
+    
 # ALIAS FOR ACCESS
 stoich = stoich_v0
 rates = rates_v0
-
+nullcline = nullcline_v0
 
 
 def stoich_v1(rates):

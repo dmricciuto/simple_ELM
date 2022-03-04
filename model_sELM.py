@@ -84,7 +84,7 @@ class MyModel(object):
                         'totecosysc','totsomc','totlitc','cstor_pft','sminn_vr', \
                         'nstor_pft','ndep','nfix','fpg_pft','fpi_vr','cwdc','totlitn', \
                         'ctcpools_vr','leafc_alloc_pft','frootc_alloc_pft','livestemc_alloc_pft', \
-                        'deadstemc_alloc_pft']
+                        'deadstemc_alloc_pft','cstor_nullcline_pft']
 
         #get neural network
         pkl_filename = './GPP_model_NN/bestmodel_daily.pkl'
@@ -545,14 +545,16 @@ class MyModel(object):
                       / 365.0 * livecrootc[p,v] - livecrootc_turnover[p]
               deadcrootc[p,v+1]  = deadcrootc[p,v]  + fpg[p,v]*deadcrootc_alloc[p] - parms['r_mort'][0] \
                       * mort_factor / 365.0 * deadcrootc[p,v] + livecrootc_turnover[p]
-              cstor_rates = nsc.rates(cstor[p,v], 
-                                      br_xr = parms['br_xr'][p],
-                                      trate = trate,
-                                      availc = availc[p],
-                                      fpg = fpg[p,v],
-                                      mr = mr[p,v], 
-                                      gpp = gpp[p,v],
-                                      r_mort = parms['r_mort'][p])
+              
+              kwargs = dict(br_xr = parms['br_xr'][p],
+                  trate = trate,
+                  availc = availc[p],
+                  fpg = fpg[p,v],
+                  mr = mr[p,v], 
+                  gpp = gpp[p,v],
+                  r_mort = parms['r_mort'][p])  
+              cstor_rates = nsc.rates(cstor[p,v], **kwargs)
+              self.output['cstor_nullcline_pft'][p,v] = nsc.nullcline(**kwargs)
               cstor[p,v+1]       = cstor[p,v] + nsc.stoich(cstor_rates)['cstor']
               #Increment plant N pools
               if (calc_nlimitation):
