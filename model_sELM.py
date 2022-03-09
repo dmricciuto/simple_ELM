@@ -84,7 +84,7 @@ class MyModel(object):
                         'totecosysc','totsomc','totlitc','cstor_pft','sminn_vr', \
                         'nstor_pft','ndep','nfix','fpg_pft','fpi_vr','cwdc','totlitn', \
                         'ctcpools_vr','leafc_alloc_pft','frootc_alloc_pft','livestemc_alloc_pft', \
-                        'deadstemc_alloc_pft','cstor_nullcline_pft']
+                        'deadstemc_alloc_pft','cstor_nullcline_pft', 'nsc_pft']
 
         #get neural network
         pkl_filename = './GPP_model_NN/bestmodel_daily.pkl'
@@ -138,6 +138,7 @@ class MyModel(object):
         frootc_alloc    = self.output['frootc_alloc_pft']
         livestemc_alloc = self.output['livestemc_alloc_pft']
         deadstemc_alloc = self.output['deadstemc_alloc_pft']
+        nsc_conc = self.output['nsc_pft']
 
         #vertically resolved variables (local)
         root_frac = numpy.zeros([npfts,self.nsoil_layers], numpy.float)
@@ -266,6 +267,7 @@ class MyModel(object):
         plant_nalloc = numpy.zeros([npfts], numpy.float)+0.0
         cstor_turnover = numpy.zeros([npfts], numpy.float)+0.0
         
+        
         met_thistimestep_norm=numpy.zeros([1,self.nparms_nn], numpy.float)
         #Run the model
         for s in range(0,spinup_cycles+1):
@@ -390,14 +392,23 @@ class MyModel(object):
                   gpp[p,v+1] = 0.0
 
               #--------------------3.  Maintenace respiration ------------------------
+              cmass = sum([leafc[p,v], leafc_stor[p,v], frootc[p,v],
+                   frootc_stor[p,v], livestemc[p,v], deadstemc[p,v], 
+                   livecrootc[p,v], deadcrootc[p,v], cstor[p,v]])
+              
+              nsc_conc[p,v] = cstor[p,v] / cmass
               #Maintenance respiration
               trate = parms['q10_mr'][0]**((0.5*(tmax[v]+tmin[v])-25.0)/25.0)
+              
               mr[p,v+1] = (leafc[p,v]/parms['leafcn'][p] + frootc[p,v]/parms['frootcn'][p] + \
                        (livecrootc[p,v]+livestemc[p,v])/max(parms['livewdcn'][p],10.))* \
                        (parms['br_mr'][0]*24*3600)*trate
+              
+              mr[p,v+1] *= 1. - math.exp(-20 * nsc_conc[p,v])  
               #Nutrient limitation
-              availc[p]      = max(gpp[p,v+1]-mr[p,v+1],0.0)
-              xsmr[p] = max(mr[p,v+1]-gpp[p,v+1],0.0)
+              growth_flux = (gpp[p, v+1] - mr[p, v+1]) * (1. - math.exp(-20*nsc_conc[p,v]))
+              availc[p] = growth_flux
+              #xsmr[p] = max(mr[p,v+1]-gpp[p,v+1],0.0)
 
               #---------------4.  Allocation and growth respiration -------------------
               frg  = parms['grperc'][p]
@@ -546,15 +557,18 @@ class MyModel(object):
               deadcrootc[p,v+1]  = deadcrootc[p,v]  + fpg[p,v]*deadcrootc_alloc[p] - parms['r_mort'][0] \
                       * mort_factor / 365.0 * deadcrootc[p,v] + livecrootc_turnover[p]
               
+            
               kwargs = dict(br_xr = parms['br_xr'][p],
-                  trate = trate,
-                  availc = availc[p],
-                  fpg = fpg[p,v],
-                  mr = mr[p,v], 
-                  gpp = gpp[p,v],
-                  r_mort = parms['r_mort'][p])  
+                   trate = trate,
+                   availc = availc[p],
+                   fpg = fpg[p,v],
+                   mr = mr[p,v+1],
+                   gr = gr[p,v+1], 
+                   gpp = gpp[p,v+1],
+                   r_mort = parms['r_mort'][p])  
               cstor_rates = nsc.rates(cstor[p,v], **kwargs)
-              self.output['cstor_nullcline_pft'][p,v] = nsc.nullcline(**kwargs)
+
+              # self.output['cstor_nullcline_pft'][p,v] = nsc.nullcline(**kwargs)
               cstor[p,v+1]       = cstor[p,v] + nsc.stoich(cstor_rates)['cstor']
               #Increment plant N pools
               if (calc_nlimitation):

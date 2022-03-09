@@ -26,16 +26,12 @@ def nullcline_v0(**kwargs):
     return N/U
     
     
-# ALIAS FOR ACCESS
-stoich = stoich_v0
-rates = rates_v0
-nullcline = nullcline_v0
 
 
 def stoich_v1(rates):
     vec = dict()
     vec['cstor'] = rates['photosynthesis'] - rates['growth_respiration']\
-        - rates['maintenance_respiration'] - rates['growth']
+        - rates['maintenance_respiration'] - rates['growth'] - rates['excess_respiration']
     return vec
 
 def rates_v1(cstor, **kwargs):
@@ -44,8 +40,22 @@ def rates_v1(cstor, **kwargs):
     rs['growth_respiration'] = kwargs['gr']
     rs['maintenance_respiration'] = kwargs['mr']
     rs['growth'] = kwargs['fpg'] * kwargs['availc']
-    return rs 
+    rs['excess_respiration'] = kwargs['br_xr']*(3600.*24.)*cstor*kwargs['trate']
+    return rs
  
+def nsc_conc(output, pft, step):
+    pools = ['leafc_pft', 'leafc_stor_pft', 'frootc_pft',
+         'frootc_stor_pft', 'livestemc_pft', 'deadstemc_pft', 
+         'livecrootc_pft','deadcrootc_pft']
+    cmass = sum(output[pool][pft,step] for pool in pools)
+    cmass += output['cstor_pft'][pft,step]
+    return output['cstor_pft'][pft,step]/cmass
+
+
+# ALIAS FOR ACCESS
+stoich = stoich_v1
+rates = rates_v1
+nullcline = nullcline_v0
 
  #Nutrient limitation
  # availc[p]      = max(gpp[p,v+1]-mr[p,v+1],0.0)
