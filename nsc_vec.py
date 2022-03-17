@@ -42,22 +42,19 @@ def GPP(rad, cair, tmin, tmax, lai, dayl= 0.5, parms=elmparms,p=1):
         out *= lai/0.5
     return out
 
-def Rm(leafc, frootc, tmin,tmax,parms=elmparms,p=1):
+def Rm(leafc, frootc, livecrootc, livestemc, tmin,tmax,parms=elmparms,p=1):
     #Maintenance respiration
-    trate = parms['q10_mr'][0]**((0.5*(tmax[v]+tmin[v])-25.0)/25.0)
+    trate = parms['q10_mr'][0]**((0.5*(tmax+tmin)-25.0)/25.0)
     leafn = leafc/parms['leafcn'][p]
     frootn = frootc/parms['frootcn'][p]
-         
-    out = (leafn + frootn  + \
-                      (livecrootc[p,v]+livestemc[p,v])/max(parms['livewdcn'][p],10.))* \
-                      (parms['br_mr'][0]*24*3600)*trate
-    return 
+    woodn = (livecrootc+livestemc)/max(parms['livewdcn'][p],10.)
+    out = (leafn + frootn  + woodn)*(parms['br_mr'][0]*24*3600)*trate
+    return out
 # t  = np.arange(forcing['FSDS'][0,:].size)/24/2
 # plt.plot(t-0.185,forcing['FSDS'][0,:])
-Ca = np.linspace(0,1000,101)
-plt.plot(Ca, GPP(750, Ca, 15,25,2))
-plt.plot(Ca, GPP(750, Ca, 10,20,2))
-plt.plot(Ca, GPP(750, Ca, 10,20,4))
+x = np.linspace(0,4000,101)
+plt.plot(x,GPP(x,400,20,30,10))
+# plt.plot(x, Rm(x*0.1, x*0.2, x*0.2,x*0.3,10,25))
 plt.show()
     # rs['cstor_turnover'] = kwargs['br_xr'] * (3600.*24.) * cstor * kwargs['trate']
     # rs['cstor_alloc'] = kwargs['availc'] * (1. - kwargs['fpg'])
