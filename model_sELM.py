@@ -202,12 +202,22 @@ class MyModel(object):
         ctcpools_vr[14,:,0] = parms['soil4ci'][0]/10.0   #ASSUME CN of 10
 
         #Forcings
+        # tavg = (numpy.array(self.forcings['tmax']) + numpy.array(self.forcings['tmin']))/2
+        # tmax = tmin = numpy.empty_like(tavg)
+        # tmax[...] = tmin[...] = tavg.mean()
         tmax = self.forcings['tmax']
         tmin = self.forcings['tmin']
-        rad  = self.forcings['rad']
+        # rad  = numpy.empty_like(self.forcings['rad'])
+        # rad[...] = numpy.array(self.forcings['rad']).mean()
+        # # rad = [self.forcings['rad'][0]] * len(self.forcings['rad'])
+        rad = self.forcings['rad']
         doy  = self.forcings['doy']
         cair = self.forcings['cair']
-        dayl = self.forcings['dayl']
+        
+        # dayl  = numpy.empty_like(self.forcings['rad'])
+        # dayl[...] = numpy.array(self.forcings['dayl']).mean()
+        dayl  = self.forcings['dayl']
+        
         btran = self.forcings['btran']
         #Coefficents for ACM (GPP submodel)
         a=numpy.zeros([npfts,10], numpy.float)
@@ -368,7 +378,7 @@ class MyModel(object):
                   ci = 0.5*(cair[v]+qq-pp+((cair[v]+qq-pp)**2-4.*(cair[v]*qq-pp*a[p,2]))**0.5)
                   e0 = a[p,6]*max(lai[p,v],0.5)**2/(max(lai[p,v],0.5)**2+a[p,8])
                   cps   = e0*rad[v]*gs*(cair[v]-ci)/(e0*rad[v]+gs*(cair[v]-ci))
-                  gpp[v+1] = cps*(a[p,1]*dayl[v]+a[p,4])
+                  gpp[p,v+1] = cps*(a[p,1]*dayl[v]+a[p,4])
                   #ACM is not valid for LAI < 0.5, so reduce GPP linearly for low LAI
                   if (lai[p,v] < 0.5):
                     gpp[p,v+1] = gpp[p,v+1]*lai[p,v]/0.5
@@ -404,7 +414,8 @@ class MyModel(object):
                        (livecrootc[p,v]+livestemc[p,v])/max(parms['livewdcn'][p],10.))* \
                        (parms['br_mr'][0]*24*3600)*trate
               
-              mr[p,v+1] *= 1. - math.exp(-20 * nsc_conc[p,v])  
+              mr[p,v+1] *= 1. - math.exp(-20 * nsc_conc[p,v])
+              
               #Nutrient limitation
               growth_flux = (gpp[p, v+1] - mr[p, v+1]) * (1. - math.exp(-20*nsc_conc[p,v]))
               availc[p] = growth_flux
@@ -566,7 +577,7 @@ class MyModel(object):
                    gr = gr[p,v+1], 
                    gpp = gpp[p,v+1],
                    r_mort = parms['r_mort'][p])  
-              cstor_rates = nsc.rates(cstor[p,v], **kwargs)
+              cstor_rates = nsc.rates(cstor[p,v],nsc_conc[p,v], **kwargs)
 
               # self.output['cstor_nullcline_pft'][p,v] = nsc.nullcline(**kwargs)
               cstor[p,v+1]       = cstor[p,v] + nsc.stoich(cstor_rates)['cstor']

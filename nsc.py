@@ -34,13 +34,13 @@ def stoich_v1(rates):
         - rates['maintenance_respiration'] - rates['growth'] - rates['excess_respiration']
     return vec
 
-def rates_v1(cstor, **kwargs):
+def rates_v1(cstor, nsc, **kwargs):
     rs = dict()
     rs['photosynthesis'] = kwargs['gpp']
     rs['growth_respiration'] = kwargs['gr']
     rs['maintenance_respiration'] = kwargs['mr']
     rs['growth'] = kwargs['fpg'] * kwargs['availc']
-    rs['excess_respiration'] = kwargs['br_xr']*(3600.*24.)*cstor*kwargs['trate']
+    rs['excess_respiration'] = kwargs['br_xr']*(3600.*24.)*(1./(0.6 - nsc))*cstor*kwargs['trate']
     return rs
  
 def nsc_conc(output, pft, step):
