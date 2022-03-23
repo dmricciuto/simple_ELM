@@ -7,6 +7,8 @@ Created on Fri Mar 11 14:11:02 2022
 import numpy as np
 import matplotlib.pyplot as plt
 from netCDF4 import Dataset
+from sklearn.neural_network import MLPRegressor
+import pickle 
 
 elmparms = Dataset('./parameters/selm_default_parms.nc','r')
 elm_parmlist = ['crit_dayl','ndays_on','ndays_off', \
@@ -22,7 +24,7 @@ elm_parmlist = ['crit_dayl','ndays_on','ndays_off', \
 
 forcing = Dataset('./forcing_data/US-Ho1_forcing.nc4','r')
 
-def GPP(rad, cair, tmin, tmax, lai, dayl= 0.5, parms=elmparms,p=1):
+def GPP(rad, cair, temp, lai, dayl= 0.5, parms=elmparms,p=1):
     a=np.array([10, 0.0156935, 4.22273, 208.868, 0.0453194,\
                 0.37836, 7.19298, 0.011136, \
            2.1001, 0.789798])
@@ -42,18 +44,60 @@ def GPP(rad, cair, tmin, tmax, lai, dayl= 0.5, parms=elmparms,p=1):
         out *= lai/0.5
     return out
 
-def Rm(leafc, frootc, livecrootc, livestemc, tmin,tmax,parms=elmparms,p=1):
+def make_GPP_nn():
+    pkl_filename = './GPP_model_NN/bestmodel_daily.pkl'
+    with open(pkl_filename, 'rb') as file:
+      nnmodel = pickle.load(file)
+    nsamples=20000
+    nparms_nn = 14  #15
+    ptrain_orig   = (np.loadtxt('./GPP_model_NN/ptrain_daily.dat'))[0:nsamples,:]
+    pmin_nn = np.zeros([nparms_nn], np.float64)
+    pmax_nn = np.zeros([nparms_nn], np.float64)
+    for i in range(0,nparms_nn):
+      pmin_nn[i] = min(ptrain_orig[:,i])
+      pmax_nn[i] = max(ptrain_orig[:,i])
+    
+    def GPP_nn(rad, cair, tmin, tmax, lai, dayl= 0.5,dayl_factor = 1, btran =1, parms=elmparms,p=1):
+        slatop = parms['slatop'][p]
+        flnr = parms['flnr'][p]
+        t10 = (tmax+tmin)/2.0+273.15
+        
+        #Use the NN trained on daily data
+        args = [btran, lai, lai/4.0, tmax+273.15, tmin+273.15, t10, \
+                        rad*1e6, 50.0, cair/10.0, dayl_factor, flnr, slatop, parms['leafcn'][p], parms['mbbopt'][p]]
+        
+        M = max(np.asarray(arg).shape for arg in args)
+        met = np.empty( M +( nparms_nn,))
+        for i in range(0,nparms_nn):   #normalize
+          met[:, i] =(args[i] - pmin_nn[i])/(pmax_nn[i] - pmin_nn[i])
+        gpp = np.maximum(nnmodel.predict(met), 0)
+        return gpp
+    return GPP_nn
+        
+
+def Rm(leafc, frootc, livecrootc, livestemc, temp, parms=elmparms,p=1):
     #Maintenance respiration
-    trate = parms['q10_mr'][0]**((0.5*(tmax+tmin)-25.0)/25.0)
+    trate = parms['q10_mr'][0]**((temp - 25.0)/25.0)
     leafn = leafc/parms['leafcn'][p]
     frootn = frootc/parms['frootcn'][p]
     woodn = (livecrootc+livestemc)/max(parms['livewdcn'][p],10.)
     out = (leafn + frootn  + woodn)*(parms['br_mr'][0]*24*3600)*trate
     return out
+
+def LAI(leafc, params, p=1):
+    return leafc * parms['slatop'][p]
+
 # t  = np.arange(forcing['FSDS'][0,:].size)/24/2
 # plt.plot(t-0.185,forcing['FSDS'][0,:])
-x = np.linspace(0,4000,101)
-plt.plot(x,GPP(x,400,20,30,10))
+
+GPP_nn = make_GPP_nn()
+x = np.linspace(0,1000,101)
+for i,  c in enumerate([200,300,400, 600, 800]):
+    plt.plot(x,GPP(x,c,20,30,5), 'C{}'.format(i), label=c)
+    
+    # plt.plot(x,GPP_nn(x,c,20,30,5), 'C{}--'.format(i))
+plt.legend()
+plt.grid()
 # plt.plot(x, Rm(x*0.1, x*0.2, x*0.2,x*0.3,10,25))
 plt.show()
     # rs['cstor_turnover'] = kwargs['br_xr'] * (3600.*24.) * cstor * kwargs['trate']
