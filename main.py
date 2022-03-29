@@ -41,5 +41,5 @@ for key in model.output:
 data['site'] = site
 data['kwargs'] = kwargs
 
-with open('../simple_ELM-output/novary_test_v2_acm.json', 'w') as jsonfile:
+with open('../simple_ELM-output/std_test.json', 'w') as jsonfile:
     dump(data, jsonfile)

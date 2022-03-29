@@ -24,7 +24,7 @@ elm_parmlist = ['crit_dayl','ndays_on','ndays_off', \
 
 forcing = Dataset('./forcing_data/US-Ho1_forcing.nc4','r')
 
-def GPP(rad, cair, temp, lai, dayl= 0.5, parms=elmparms,p=1):
+def GPP(rad, cair, tmin, tmax, lai, dayl= 12, parms=elmparms,p=1):
     a=np.array([10, 0.0156935, 4.22273, 208.868, 0.0453194,\
                 0.37836, 7.19298, 0.011136, \
            2.1001, 0.789798])
@@ -84,23 +84,96 @@ def Rm(leafc, frootc, livecrootc, livestemc, temp, parms=elmparms,p=1):
     out = (leafn + frootn  + woodn)*(parms['br_mr'][0]*24*3600)*trate
     return out
 
-def LAI(leafc, params, p=1):
+def LAI(leafc, parms, p=1):
     return leafc * parms['slatop'][p]
 
+# def ALLOC(availc, parms,p=1):
+#     frg  = parms['grperc'][p]
+#     flw  = parms['flivewd'][p]
+#     f1   = parms['froot_leaf'][p]
+#     if (seasonal_rootalloc):
+#         if (annsum_gpp_temp[p]/annsum_gpp[p] > parms['froot_phen_peak'][p]- \
+#                 parms['froot_phen_width'][p]/2.0 and annsum_gpp_temp[p]/annsum_gpp[p] \
+#                 < parms['froot_phen_peak'][p]+parms['froot_phen_width'][p]/2.0):
+#           f1 = f1*1.0/(parms['froot_phen_width'][p])
+#         else:
+#           f1 = 0.0
+
+#     if (parms['stem_leaf'][p] < 0):
+#       f2   = max(-1.0*parms['stem_leaf'][p]/(1.0+numpy.exp(-0.004*(annsum_npp[p] - \
+#                      300.0))) - 0.4, 0.1)
+#       f3   = parms['croot_stem'][p]
+#     else:
+#       f2 = parms['stem_leaf'][p]
+#       f3 = parms['croot_stem'][p]
+#     callom = (1.0+frg)*(1.0 + f1 + f2*(1+f3))
+#     nallom = 1.0 / parms['leafcn'][p] + f1 / parms['frootcn'][p] + \
+#           f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
+#           f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
+#     if (parms['season_decid'][p] == 1):
+#       leafc_alloc[p,v]      = 0.
+#       frootc_alloc[p,v]     = 0.
+#       leafcstor_alloc[p]  = availc * 1.0/callom
+#       frootcstor_alloc[p] = availc * f1/callom
+#     else:
+#       leafcstor_alloc[p]  = 0.
+#       frootcstor_alloc[p] = 0.
+#       leafc_alloc[p,v]      = availc * 1.0/callom
+#       frootc_alloc[p,v]     = availc * f1/callom
+#     livestemc_alloc[p,v]  = availc * flw*f2/callom
+#     deadstemc_alloc[p,v]  = availc * (1.0-flw) * f2/callom
+#     livecrootc_alloc[p] = availc * flw*(f2*f3)/callom
+#     deadcrootc_alloc[p] = availc * (1.0-flw) * f2*f3/callom
+    
+#     plant_ndemand[p] = availc[p] * nallom[p]/callom[p] - annsum_retransn[p]*gpp[p,v+1]/annsum_gpp[p]
+
+
+# def phenology(time,temp,gdd,dayl,parms,p=1):
+
+#     if (parms['season_decid'][p] == 1):     #Decidous phenology
+#       gdd_last = gdd[p]
+#       dayl_last = dayl[v-1]
+#       gdd_base = 0.0
+#       doy = time * 365.
+#       gdd[p] = (doy > 1) * (gdd[p] + max(temp-gdd_base, 0.0))
+#       if (gdd[p] >= parms['gdd_crit'][p] and gdd_last < parms['gdd_crit'][p]):
+#         leafon[p] = parms['ndays_on'][0]
+#         leafc_trans_tot[p]  = leafc_stor[p,v]*parms['fstor2tran'][0]
+#         frootc_trans_tot[p] = frootc_stor[p,v]*parms['fstor2tran'][0]
+#       if (leafon[p] > 0):
+#         leafc_trans[p]  = leafc_trans_tot[p]  / parms['ndays_on'][0]
+#         frootc_trans[p] = frootc_trans_tot[p] / parms['ndays_on'][0]
+#         leafon[p] = leafon[p] - 1
+#       else:
+#         leafc_trans[p] = 0.0
+#         frootc_trans[p] = 0.0
+#       #Calculate leaf off
+#       if (dayl_last >= parms['crit_dayl'][0]/3600. and dayl[v] < parms['crit_dayl'][0]/3600.):
+#          leafoff[p] = parms['ndays_off'][0]
+#          leafc_litter_tot[p]  = leafc[p,v]
+#          frootc_litter_tot[p] = frootc[p,v]
+#       if (leafoff[p] > 0):
+#          leafc_litter[p]  = min(leafc_litter_tot[p]  / parms['ndays_off'][0], leafc[p,v])
+#          frootc_litter[p] = min(frootc_litter_tot[p] / parms['ndays_off'][0], frootc[p,v])
+#          leafoff[p] = leafoff[p] - 1
+#       else:
+#          leafc_litter[p]  = 0.0
+#          frootc_litter[p] = 0.0
+#       leafn_litter[p] = leafc_litter[p] /parms['lflitcn'][p]
+#       retransn[p] = leafc_litter[p] / parms['leafcn'][p] - leafn_litter[p]
+#     else:               #Evergreen phenology / leaf mortality`
+#       retransn[p] = leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) * \
+#                           (1.0 / parms['leafcn'][p] - 1.0 / parms['lflitcn'][p])
+#       leafc_litter[p]  = parms['r_mort'][0] * leafc[p,v]/365.0  + leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. )
+#       leafn_litter[p]  = parms['r_mort'][0] * leafc[p,v]/365.0  / parms['leafcn'][p] +  \
+#                      leafc[p,v]  * 1.0 / (parms['leaf_long'][p]*365. ) / parms['lflitcn'][p]
+#       frootc_litter[p] = parms['r_mort'][0] * frootc[p,v]/365.0 + frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)    
 # t  = np.arange(forcing['FSDS'][0,:].size)/24/2
 # plt.plot(t-0.185,forcing['FSDS'][0,:])
-
-GPP_nn = make_GPP_nn()
 x = np.linspace(0,1000,101)
-for i,  c in enumerate([200,300,400, 600, 800]):
-    plt.plot(x,GPP(x,c,20,30,5), 'C{}'.format(i), label=c)
-    
-    # plt.plot(x,GPP_nn(x,c,20,30,5), 'C{}--'.format(i))
-plt.legend()
+
+for dl in [0.5,6,8,12,14]: 
+    plt.plot(x, GPP(x,400,15,25,2,dl))
+
 plt.grid()
-# plt.plot(x, Rm(x*0.1, x*0.2, x*0.2,x*0.3,10,25))
 plt.show()
-    # rs['cstor_turnover'] = kwargs['br_xr'] * (3600.*24.) * cstor * kwargs['trate']
-    # rs['cstor_alloc'] = kwargs['availc'] * (1. - kwargs['fpg'])
-    # rs['xsmr'] = max(kwargs['mr'] -kwargs['gpp'], 0.)
-    # rs['c_mortality'] = kwargs['r_mort'] / 365. * cstor
