@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 29 14:35:48 2022
+
+@author: fso
+"""
+
 from sklearn.neural_network import MLPRegressor
 import pickle
 import numpy
@@ -6,7 +13,6 @@ import matplotlib.pyplot as plt
 from math import sin, cos, sqrt, atan2, radians
 import math, time, os
 import utils
-import nsc
 #import load_forcings
 
 class MyModel(object):
@@ -49,7 +55,7 @@ class MyModel(object):
         #Additional selm parameters not in elm
         self.parms['gdd_crit'] = numpy.zeros([self.npfts])+400.
         self.parms['nue'] = numpy.zeros([self.npfts])+10.0
-        self.parms['fpg'] = [0.8]
+        self.parms['fpg'] = [1.]*self.npfts
         self.parms['fpi'] = [0.8]
         self.parms['soil4ci'] = [1000.]
         self.parms['froot_phen_peak']=numpy.zeros([self.npfts])+0.5
@@ -84,7 +90,7 @@ class MyModel(object):
                         'totecosysc','totsomc','totlitc','cstor_pft','sminn_vr', \
                         'nstor_pft','ndep','nfix','fpg_pft','fpi_vr','cwdc','totlitn', \
                         'ctcpools_vr','leafc_alloc_pft','frootc_alloc_pft','livestemc_alloc_pft', \
-                        'deadstemc_alloc_pft','cstor_nullcline_pft', 'nsc_pft']
+                        'deadstemc_alloc_pft']
 
         #get neural network
         pkl_filename = './GPP_model_NN/bestmodel_daily.pkl'
@@ -101,7 +107,7 @@ class MyModel(object):
 
     def selm_instance(self, parms, use_nn=False, seasonal_rootalloc=False, spinup_cycles=0, pftwt=[1.0,0,0]):
 
-        calc_nlimitation = False
+        calc_nlimitation = True
         npfts = self.npfts
         #--------------- Initialize ------------------------
         #Flux variables
@@ -138,7 +144,6 @@ class MyModel(object):
         frootc_alloc    = self.output['frootc_alloc_pft']
         livestemc_alloc = self.output['livestemc_alloc_pft']
         deadstemc_alloc = self.output['deadstemc_alloc_pft']
-        nsc_conc = self.output['nsc_pft']
 
         #vertically resolved variables (local)
         root_frac = numpy.zeros([npfts,self.nsoil_layers], numpy.float)
@@ -204,24 +209,10 @@ class MyModel(object):
         #Forcings
         tmax = self.forcings['tmax']
         tmin = self.forcings['tmin']
-        # tavg = (numpy.array(self.forcings['tmax']) + numpy.array(self.forcings['tmin']))/2
-        # tmax = tmin = numpy.empty_like(tavg)
-        # tmax[...] = tmin[...] = tavg.mean()
-        # num= len(self.forcings['tmax'])
-        # tmax = [25] *num
-        # tmin = [15] *num
-        
-        # rad  = numpy.empty_like(self.forcings['rad'])
-        # rad[...] = numpy.array(self.forcings['rad']).mean()
-        # rad = [self.forcings['rad'][0]] * len(self.forcings['rad'])
-        rad = self.forcings['rad']
+        rad  = self.forcings['rad']
         doy  = self.forcings['doy']
         cair = self.forcings['cair']
-        
-        # dayl  = numpy.empty_like(self.forcings['rad'])
-        # dayl[...] = numpy.array(self.forcings['dayl']).mean()
-        dayl  = self.forcings['dayl']
-        
+        dayl = self.forcings['dayl']
         btran = self.forcings['btran']
         #Coefficents for ACM (GPP submodel)
         a=numpy.zeros([npfts,10], numpy.float)
@@ -280,7 +271,6 @@ class MyModel(object):
         plant_ndemand = numpy.zeros([npfts], numpy.float)+0.0
         plant_nalloc = numpy.zeros([npfts], numpy.float)+0.0
         cstor_turnover = numpy.zeros([npfts], numpy.float)+0.0
-        
         
         met_thistimestep_norm=numpy.zeros([1,self.nparms_nn], numpy.float)
         #Run the model
@@ -382,7 +372,7 @@ class MyModel(object):
                   ci = 0.5*(cair[v]+qq-pp+((cair[v]+qq-pp)**2-4.*(cair[v]*qq-pp*a[p,2]))**0.5)
                   e0 = a[p,6]*max(lai[p,v],0.5)**2/(max(lai[p,v],0.5)**2+a[p,8])
                   cps   = e0*rad[v]*gs*(cair[v]-ci)/(e0*rad[v]+gs*(cair[v]-ci))
-                  gpp[p,v+1] = cps*(a[p,1]*dayl[v]+a[p,4])
+                  gpp[v+1] = cps*(a[p,1]*dayl[v]+a[p,4])
                   #ACM is not valid for LAI < 0.5, so reduce GPP linearly for low LAI
                   if (lai[p,v] < 0.5):
                     gpp[p,v+1] = gpp[p,v+1]*lai[p,v]/0.5
@@ -406,24 +396,14 @@ class MyModel(object):
                   gpp[p,v+1] = 0.0
 
               #--------------------3.  Maintenace respiration ------------------------
-              cmass = sum([leafc[p,v], leafc_stor[p,v], frootc[p,v],
-                   frootc_stor[p,v], livestemc[p,v], deadstemc[p,v], 
-                   livecrootc[p,v], deadcrootc[p,v], cstor[p,v]])
-              
-              nsc_conc[p,v] = cstor[p,v] / cmass
               #Maintenance respiration
               trate = parms['q10_mr'][0]**((0.5*(tmax[v]+tmin[v])-25.0)/25.0)
-              
               mr[p,v+1] = (leafc[p,v]/parms['leafcn'][p] + frootc[p,v]/parms['frootcn'][p] + \
                        (livecrootc[p,v]+livestemc[p,v])/max(parms['livewdcn'][p],10.))* \
                        (parms['br_mr'][0]*24*3600)*trate
-              
-              # mr[p,v+1] *= 1. - math.exp(-20 * nsc_conc[p,v])
-              
+              # mr[p, v+1] *= cstor[p,v]/(1 + cstor[p,v])
               #Nutrient limitation
-              # growth_flux = (gpp[p, v+1] - mr[p, v+1]) * (1. - math.exp(-20*nsc_conc[p,v]))
-              # availc[p] = growth_flux
-              availc[p] = max(gpp[p,v+1] - mr[p,v+1],0.)
+              availc[p]      = max(gpp[p,v+1]-mr[p,v+1],0.0)
               xsmr[p] = max(mr[p,v+1]-gpp[p,v+1],0.0)
 
               #---------------4.  Allocation and growth respiration -------------------
@@ -483,7 +463,7 @@ class MyModel(object):
             if (calc_nlimitation):
               #Calculate potential immobilization (assume from litter-> SOM transitions only)
               potential_immob_vr = numpy.zeros([self.nsoil_layers], numpy.float)
-              trate = parms['q10_hr'][0]**((0.5*(tmax[v]+tmin[v])-10)/10.0)
+              trate = parms['q10_hr']**((0.5*(tmax[v]+tmin[v])-10)/10.0)
               for p in range(0,3):
                 for nl in range(0,self.nsoil_layers):
                   if (ctcpools_vr[p,nl,v] > 0 and ctcpools_vr[p+8,nl,v] > 0):
@@ -557,7 +537,7 @@ class MyModel(object):
                         / 365.0 * nstor[p,v] * surf_prof[nl]
             # Take XSMR From cpool instead (below)
             for p in range(0,npfts):
-              # cstor_turnover[p] = parms['br_xr'][p] * (3600.*24.) * cstor[p,v] * trate
+              cstor_turnover[p] = parms['br_xr'][p] * (3600.*24.) * cstor[p,v] * trate
 
               #increment plant C pools
               leafc[p,v+1]       = leafc[p,v]       + fpg[p,v]*leafc_alloc[p,v] + leafc_trans[p] - leafc_litter[p]
@@ -572,23 +552,11 @@ class MyModel(object):
                       / 365.0 * livecrootc[p,v] - livecrootc_turnover[p]
               deadcrootc[p,v+1]  = deadcrootc[p,v]  + fpg[p,v]*deadcrootc_alloc[p] - parms['r_mort'][0] \
                       * mort_factor / 365.0 * deadcrootc[p,v] + livecrootc_turnover[p]
-              
-            
-              kwargs = dict(br_xr = parms['br_xr'][p],
-                   trate = trate,
-                   availc = availc[p],
-                   fpg = fpg[p,v],
-                   mr = mr[p,v+1],
-                   gr = gr[p,v+1], 
-                   gpp = gpp[p,v+1],
-                   r_mort = parms['r_mort'][p])  
-              cstor_rates = nsc.rates(cstor[p,v],nsc_conc[p,v], **kwargs)
-
-              # self.output['cstor_nullcline_pft'][p,v] = nsc.nullcline(**kwargs)
-              cstor[p,v+1]       = cstor[p,v] + nsc.stoich(cstor_rates)['cstor']
+              cstor[p,v+1]       = cstor[p,v] + cstor_alloc[p] - parms['r_mort'][0] / 365.0 * \
+                      cstor[p,v] - cstor_turnover[p] - xsmr[p]
               #Increment plant N pools
               if (calc_nlimitation):
-                nstor[p,v+1] = nstor[p,v] - parms['r_mort'][p] / 365.0 * nstor[p,v] + \
+                nstor[p,v+1] = nstor[p,v] - parms['r_mort'][0] / 365.0 * nstor[p,v] + \
                         retransn[p] - plant_nalloc[p] + fpi*plant_ndemand[p]  
 
               #Calculate NPP
@@ -613,16 +581,16 @@ class MyModel(object):
               #Carbon
             for nl in range(0,self.nsoil_layers):
               ctc_input[0,nl] = leafc_litter_vr[nl]*parms['lf_flab'][p] + frootc_litter_vr[nl]*parms['fr_flab'][p]
-              ctc_input[1,nl] = leafc_litter_vr[nl]*parms['lf_flig'][p] + frootc_litter_vr[nl]*parms['fr_flig'][p]
-              ctc_input[2,nl] = leafc_litter_vr[nl]*(1.0 - parms['lf_flab'][p] - parms['lf_flig'][p]) + frootc_litter_vr[nl]* \
+              ctc_input[2,nl] = leafc_litter_vr[nl]*parms['lf_flig'][p] + frootc_litter_vr[nl]*parms['fr_flig'][p]
+              ctc_input[1,nl] = leafc_litter_vr[nl]*(1.0 - parms['lf_flab'][p] - parms['lf_flig'][p]) + frootc_litter_vr[nl]* \
                            (1.0-parms['fr_flab'][p]-parms['fr_flig'][p])
               ctc_input[7,nl] = livestemc_litter_vr[nl] + livecrootc_litter_vr[nl] + deadcrootc_litter_vr[nl] + deadstemc_litter_vr[nl] 
               #Nitrogen
               ctc_input[8,nl] = leafn_litter_vr[nl]*parms['lf_flab'][p] + \
                                frootc_litter_vr[nl]*parms['fr_flab'][p] / parms['frootcn'][p] 
-              ctc_input[9,nl] = leafn_litter_vr[nl]*parms['lf_flig'][p] + \
+              ctc_input[10,nl] = leafn_litter_vr[nl]*parms['lf_flig'][p] + \
                                frootc_litter_vr[nl]*parms['fr_flig'][p] / parms['frootcn'][p]
-              ctc_input[10,nl] = leafn_litter_vr[nl]*(1.0 - parms['lf_flig'][p] - parms['lf_flab'][p]) +  \
+              ctc_input[9,nl] = leafn_litter_vr[nl]*(1.0 - parms['lf_flig'][p] - parms['lf_flab'][p]) +  \
                            frootc_litter_vr[nl]*(1.0 - parms['fr_flig'][p] - parms['fr_flab'][p]) / parms['frootcn'][p]
               ctc_input[15,nl] = (livestemc_litter_vr[nl] + livecrootc_litter_vr[nl]) / max(parms['livewdcn'][p],10.) + \
                             (deadcrootc_litter_vr[nl] + deadstemc_litter_vr[nl]) / max(parms['deadwdcn'][p],10.)
@@ -633,15 +601,15 @@ class MyModel(object):
             else:
               spinup_factors = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             for nl in range(0,self.nsoil_layers):
-              trate = parms['q10_hr'][0]**((0.5*(tmax[v]+tmin[v])-10)/10.0)
+              trate = parms['q10_hr']**((0.5*(tmax[v]+tmin[v])-10)/10.0)
               for p1 in range(0,8):
                 if (p1 < 3):
                    if (calc_nlimitation):
                      ctc_output[p1,nl]   = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*fpi_vr[nl,v] 
                      ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*fpi_vr[nl,v] / ctc_cn[p1,nl]
                    else:
-                     ctc_output[p1,nl]   = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*parms['fpi'][0]
-                     ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*parms['fpi'][0] / ctc_cn[p1,nl]
+                     ctc_output[p1,nl]   = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*parms['fpi']
+                     ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*depth_scalar[nl]*trate*parms['fpi'] / ctc_cn[p1,nl]
                 else:
                    ctc_output[p1,nl]   = k_ctc[p1]*ctcpools_vr[p1,nl,v]*spinup_factors[p1]*depth_scalar[nl]*trate  #Decomposition (output)
                    ctc_output[p1+8,nl] = k_ctc[p1]*ctcpools_vr[p1,nl,v]*spinup_factors[p1]*depth_scalar[nl]*trate / ctc_cn[p1,nl]

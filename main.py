@@ -1,5 +1,5 @@
 ##!/usr/bin/python
-import model_sELM as models
+import model_sELM_v0 as models
 # import os, sys, math, random
 # import forcings
 # from utils import *
@@ -16,7 +16,7 @@ model.load_forcings(site=site)
 # fig, ax = plt.subplots(2,2)
 print('running the default model')
 
-kwargs = dict(use_nn=False, seasonal_rootalloc=False, spinup_cycles=0)
+kwargs = dict(use_nn=True, seasonal_rootalloc=False, spinup_cycles=3)
 model.run_selm(**kwargs)
 # ax[0,0].plot(model.output['lai_pft'].squeeze()[0:365],'b')
 # ax[0,0].set_ylabel('LAI')
