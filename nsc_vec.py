@@ -87,45 +87,45 @@ def Rm(leafc, frootc, livecrootc, livestemc, temp, parms=elmparms,p=1):
 def LAI(leafc, parms, p=1):
     return leafc * parms['slatop'][p]
 
-# def ALLOC(availc, parms,p=1):
-#     frg  = parms['grperc'][p]
-#     flw  = parms['flivewd'][p]
-#     f1   = parms['froot_leaf'][p]
-#     if (seasonal_rootalloc):
-#         if (annsum_gpp_temp[p]/annsum_gpp[p] > parms['froot_phen_peak'][p]- \
-#                 parms['froot_phen_width'][p]/2.0 and annsum_gpp_temp[p]/annsum_gpp[p] \
-#                 < parms['froot_phen_peak'][p]+parms['froot_phen_width'][p]/2.0):
-#           f1 = f1*1.0/(parms['froot_phen_width'][p])
-#         else:
-#           f1 = 0.0
+def ALLOC(availc, parms,p=1):
+    frg  = parms['grperc'][p]
+    flw  = parms['flivewd'][p]
+    f1   = parms['froot_leaf'][p]
+    # if (seasonal_rootalloc):
+    #     if (annsum_gpp_temp[p]/annsum_gpp[p] > parms['froot_phen_peak'][p]- \
+    #             parms['froot_phen_width'][p]/2.0 and annsum_gpp_temp[p]/annsum_gpp[p] \
+    #             < parms['froot_phen_peak'][p]+parms['froot_phen_width'][p]/2.0):
+    #       f1 = f1*1.0/(parms['froot_phen_width'][p])
+    #     else:
+    #       f1 = 0.0
 
-#     if (parms['stem_leaf'][p] < 0):
-#       f2   = max(-1.0*parms['stem_leaf'][p]/(1.0+numpy.exp(-0.004*(annsum_npp[p] - \
-#                      300.0))) - 0.4, 0.1)
-#       f3   = parms['croot_stem'][p]
-#     else:
-#       f2 = parms['stem_leaf'][p]
-#       f3 = parms['croot_stem'][p]
-#     callom = (1.0+frg)*(1.0 + f1 + f2*(1+f3))
-#     nallom = 1.0 / parms['leafcn'][p] + f1 / parms['frootcn'][p] + \
-#           f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
-#           f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
-#     if (parms['season_decid'][p] == 1):
-#       leafc_alloc[p,v]      = 0.
-#       frootc_alloc[p,v]     = 0.
-#       leafcstor_alloc[p]  = availc * 1.0/callom
-#       frootcstor_alloc[p] = availc * f1/callom
-#     else:
-#       leafcstor_alloc[p]  = 0.
-#       frootcstor_alloc[p] = 0.
-#       leafc_alloc[p,v]      = availc * 1.0/callom
-#       frootc_alloc[p,v]     = availc * f1/callom
-#     livestemc_alloc[p,v]  = availc * flw*f2/callom
-#     deadstemc_alloc[p,v]  = availc * (1.0-flw) * f2/callom
-#     livecrootc_alloc[p] = availc * flw*(f2*f3)/callom
-#     deadcrootc_alloc[p] = availc * (1.0-flw) * f2*f3/callom
+    if (parms['stem_leaf'][p] < 0):
+      f2   = max(-1.0*parms['stem_leaf'][p]/(1.0+np.exp(-0.004*(annsum_npp - \
+                      300.0))) - 0.4, 0.1)
+      f3   = parms['croot_stem'][p]
+    else:
+      f2 = parms['stem_leaf'][p]
+      f3 = parms['croot_stem'][p]
+    callom = (1.0+frg)*(1.0 + f1 + f2*(1+f3))
+    nallom = 1.0 / parms['leafcn'][p] + f1 / parms['frootcn'][p] + \
+          f2 * flw * (1.0 + f3) / max(parms['livewdcn'][p],10.) + \
+          f2 * (1.0 - flw) * (1.0 + f3) / max(parms['deadwdcn'][p],10.)
+    if (parms['season_decid'][p] == 1):
+      leafc_alloc[p,v]      = 0.
+      frootc_alloc[p,v]     = 0.
+      leafcstor_alloc[p]  = availc * 1.0/callom
+      frootcstor_alloc[p] = availc * f1/callom
+    else:
+      leafcstor_alloc[p]  = 0.
+      frootcstor_alloc[p] = 0.
+      leafc_alloc[p,v]      = availc * 1.0/callom
+      frootc_alloc[p,v]     = availc * f1/callom
+    livestemc_alloc[p,v]  = availc * flw*f2/callom
+    deadstemc_alloc[p,v]  = availc * (1.0-flw) * f2/callom
+    livecrootc_alloc[p] = availc * flw*(f2*f3)/callom
+    deadcrootc_alloc[p] = availc * (1.0-flw) * f2*f3/callom
     
-#     plant_ndemand[p] = availc[p] * nallom[p]/callom[p] - annsum_retransn[p]*gpp[p,v+1]/annsum_gpp[p]
+    plant_ndemand[p] = availc[p] * nallom[p]/callom[p] - annsum_retransn[p]*gpp[p,v+1]/annsum_gpp[p]
 
 
 # def phenology(time,temp,gdd,dayl,parms,p=1):
@@ -170,10 +170,9 @@ def LAI(leafc, parms, p=1):
 #       frootc_litter[p] = parms['r_mort'][0] * frootc[p,v]/365.0 + frootc[p,v] * 1.0 / (parms['froot_long'][p]*365.)    
 # t  = np.arange(forcing['FSDS'][0,:].size)/24/2
 # plt.plot(t-0.185,forcing['FSDS'][0,:])
-x = np.linspace(0,1000,101)
-
-for dl in [0.5,6,8,12,14]: 
-    plt.plot(x, GPP(x,400,15,25,2,dl))
+x = np.linspace(0,20,101)
+A = [GPP(500,400,15,25,x__,12) for x__ in x] 
+plt.plot(x, A)
 
 plt.grid()
 plt.show()

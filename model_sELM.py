@@ -213,8 +213,8 @@ class MyModel(object):
         
         # rad  = numpy.empty_like(self.forcings['rad'])
         # rad[...] = numpy.array(self.forcings['rad']).mean()
-        # rad = [self.forcings['rad'][0]] * len(self.forcings['rad'])
-        rad = self.forcings['rad']
+        rad = [self.forcings['rad'][0]] * len(self.forcings['rad'])
+        # rad = self.forcings['rad']
         doy  = self.forcings['doy']
         cair = self.forcings['cair']
         
